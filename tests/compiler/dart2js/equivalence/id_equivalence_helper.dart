@@ -236,6 +236,12 @@ Future<CompiledData> computeData(
     commonElements.asyncLibrary,
   ];
 
+  LibraryEntity htmlLibrary =
+      elementEnvironment.lookupLibrary(Uri.parse('dart:html'), required: false);
+  if (htmlLibrary != null) {
+    globalLibraries.add(htmlLibrary);
+  }
+
   ClassEntity getGlobalClass(String className) {
     ClassEntity cls;
     for (LibraryEntity library in globalLibraries) {
@@ -451,6 +457,31 @@ class MemberAnnotations<DataType> {
       _computedDataForEachFile[file] = <Id, DataType>{};
     }
     return _computedDataForEachFile[file];
+  }
+
+  String toString() {
+    StringBuffer sb = new StringBuffer();
+    sb.write('MemberAnnotations(');
+    String comma = '';
+    if (_computedDataForEachFile.isNotEmpty &&
+        (_computedDataForEachFile.length > 1 ||
+            _computedDataForEachFile.values.single.isNotEmpty)) {
+      sb.write('data:{');
+      _computedDataForEachFile.forEach((Uri uri, Map<Id, DataType> data) {
+        sb.write(comma);
+        sb.write('$uri:');
+        sb.write(data);
+        comma = ',';
+      });
+      sb.write('}');
+    }
+    if (globalData.isNotEmpty) {
+      sb.write(comma);
+      sb.write('global:');
+      sb.write(globalData);
+    }
+    sb.write(')');
+    return sb.toString();
   }
 }
 

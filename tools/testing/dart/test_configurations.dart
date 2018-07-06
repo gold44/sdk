@@ -99,7 +99,7 @@ Future testConfigurations(List<Configuration> configurations) async {
         configuration.architecture.name
       ];
       if (configuration.isChecked) settings.add('checked');
-      if (configuration.isStrong) settings.add('strong');
+      if (configuration.noPreviewDart2) settings.add('no-preview-dart-2');
       if (configuration.useFastStartup) settings.add('fast-startup');
       if (configuration.useEnableAsserts) settings.add('enable-asserts');
       outputWords.add(settings.join('_'));
@@ -137,7 +137,7 @@ Future testConfigurations(List<Configuration> configurations) async {
     } else if (configuration.runtime.isSafari) {
       // Safari does not allow us to run from a fresh profile, so we can only
       // use one browser. Additionally, you can not start two simulators
-      // for mobile safari simultainiously.
+      // for mobile safari simultaneously.
       maxBrowserProcesses = 1;
     } else if (configuration.runtime == Runtime.chrome &&
         Platform.operatingSystem == 'macos') {

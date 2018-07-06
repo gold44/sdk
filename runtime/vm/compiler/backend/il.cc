@@ -320,9 +320,20 @@ const ICData* Instruction::GetICData(
     const ICData* result = ic_data_array[deopt_id_];
 #if defined(TAG_IC_DATA)
     if (result != NULL) {
-      if (result->tag() == -1) {
-        result->set_tag(tag());
-      } else if (result->tag() != tag()) {
+      ICData::Tag ic_data_tag = ICData::Tag::kUnknown;
+      switch (tag()) {
+        case kInstanceCall:
+          ic_data_tag = ICData::Tag::kInstanceCall;
+          break;
+        case kStaticCall:
+          ic_data_tag = ICData::Tag::kStaticCall;
+          break;
+        default:
+          UNREACHABLE();
+      }
+      if (result->tag() == ICData::Tag::kUnknown) {
+        result->set_tag(ic_data_tag);
+      } else if (result->tag() != ic_data_tag) {
         FATAL("ICData tag mismatch");
       }
     }
@@ -560,6 +571,86 @@ intptr_t CheckClassInstr::ComputeCidMask() const {
     mask |= run << (cids_[i].cid_start - min);
   }
   return mask;
+}
+
+const NativeFieldDesc* NativeFieldDesc::Get(Kind kind) {
+  static const NativeFieldDesc fields[] = {
+#define IMMUTABLE true
+#define MUTABLE false
+#define DEFINE_NATIVE_FIELD(ClassName, FieldName, cid, mutability)             \
+  NativeFieldDesc(k##ClassName##_##FieldName, ClassName::FieldName##_offset(), \
+                  k##cid##Cid, mutability),
+
+      NATIVE_FIELDS_LIST(DEFINE_NATIVE_FIELD)
+
+#undef DEFINE_FIELD
+#undef MUTABLE
+#undef IMMUTABLE
+  };
+
+  return &fields[kind];
+}
+
+const NativeFieldDesc* NativeFieldDesc::GetLengthFieldForArrayCid(
+    intptr_t array_cid) {
+  if (RawObject::IsExternalTypedDataClassId(array_cid) ||
+      RawObject::IsTypedDataClassId(array_cid)) {
+    return Get(kTypedData_length);
+  }
+
+  switch (array_cid) {
+    case kGrowableObjectArrayCid:
+      return Get(kGrowableObjectArray_length);
+
+    case kOneByteStringCid:
+    case kTwoByteStringCid:
+    case kExternalOneByteStringCid:
+    case kExternalTwoByteStringCid:
+      return Get(kString_length);
+
+    case kArrayCid:
+    case kImmutableArrayCid:
+      return Get(kArray_length);
+
+    default:
+      UNREACHABLE();
+      return nullptr;
+  }
+}
+
+const NativeFieldDesc* NativeFieldDesc::GetTypeArgumentsFieldFor(
+    Zone* zone,
+    const Class& cls) {
+  // TODO(vegorov) consider caching type arguments fields for specific classes
+  // in some sort of a flow-graph specific cache.
+  const intptr_t offset = cls.type_arguments_field_offset();
+  ASSERT(offset != Class::kNoTypeArguments);
+  return new (zone) NativeFieldDesc(kTypeArguments, offset, kDynamicCid,
+                                    /*immutable=*/true);
+}
+
+RawAbstractType* NativeFieldDesc::type() const {
+  if (cid() == kSmiCid) {
+    return Type::SmiType();
+  }
+
+  return Type::DynamicType();
+}
+
+const char* NativeFieldDesc::name() const {
+  switch (kind()) {
+#define HANDLE_CASE(ClassName, FieldName, cid, mutability)                     \
+  case k##ClassName##_##FieldName:                                             \
+    return #ClassName "." #FieldName;
+
+    NATIVE_FIELDS_LIST(HANDLE_CASE)
+
+#undef HANDLE_CASE
+    case kTypeArguments:
+      return ":type_arguments";
+  }
+  UNREACHABLE();
+  return nullptr;
 }
 
 bool LoadFieldInstr::IsUnboxedLoad() const {
@@ -2240,34 +2331,27 @@ Instruction* CheckStackOverflowInstr::Canonicalize(FlowGraph* flow_graph) {
 }
 
 bool LoadFieldInstr::IsImmutableLengthLoad() const {
-  switch (recognized_kind()) {
-    case MethodRecognizer::kObjectArrayLength:
-    case MethodRecognizer::kImmutableArrayLength:
-    case MethodRecognizer::kTypedDataLength:
-    case MethodRecognizer::kStringBaseLength:
-      return true;
-    default:
-      return false;
-  }
-}
+  if (native_field() != nullptr) {
+    switch (native_field()->kind()) {
+      case NativeFieldDesc::kArray_length:
+      case NativeFieldDesc::kTypedData_length:
+      case NativeFieldDesc::kString_length:
+        return true;
+      case NativeFieldDesc::kGrowableObjectArray_length:
+        return false;
 
-MethodRecognizer::Kind LoadFieldInstr::RecognizedKindFromArrayCid(
-    intptr_t cid) {
-  if (RawObject::IsTypedDataClassId(cid) ||
-      RawObject::IsExternalTypedDataClassId(cid)) {
-    return MethodRecognizer::kTypedDataLength;
+      // Not length loads.
+      case NativeFieldDesc::kLinkedHashMap_index:
+      case NativeFieldDesc::kLinkedHashMap_data:
+      case NativeFieldDesc::kLinkedHashMap_hash_mask:
+      case NativeFieldDesc::kLinkedHashMap_used_data:
+      case NativeFieldDesc::kLinkedHashMap_deleted_keys:
+      case NativeFieldDesc::kArgumentsDescriptor_type_args_len:
+      case NativeFieldDesc::kTypeArguments:
+        return false;
+    }
   }
-  switch (cid) {
-    case kArrayCid:
-      return MethodRecognizer::kObjectArrayLength;
-    case kImmutableArrayCid:
-      return MethodRecognizer::kImmutableArrayLength;
-    case kGrowableObjectArrayCid:
-      return MethodRecognizer::kGrowableArrayLength;
-    default:
-      UNREACHABLE();
-      return MethodRecognizer::kUnknown;
-  }
+  return false;
 }
 
 bool LoadFieldInstr::IsFixedLengthArrayCid(intptr_t cid) {
@@ -2297,7 +2381,22 @@ Definition* MathUnaryInstr::Canonicalize(FlowGraph* flow_graph) {
 }
 
 bool LoadFieldInstr::Evaluate(const Object& instance, Object* result) {
-  if (field() == NULL || !field()->is_final() || !instance.IsInstance()) {
+  if (native_field() != nullptr) {
+    switch (native_field()->kind()) {
+      case NativeFieldDesc::kArgumentsDescriptor_type_args_len:
+        if (instance.IsArray() && Array::Cast(instance).IsImmutable()) {
+          ArgumentsDescriptor desc(Array::Cast(instance));
+          *result = Smi::New(desc.TypeArgsLen());
+          return true;
+        }
+        return false;
+
+      default:
+        break;
+    }
+  }
+
+  if (field() == nullptr || !field()->is_final() || !instance.IsInstance()) {
     return false;
   }
 
@@ -2318,38 +2417,40 @@ bool LoadFieldInstr::Evaluate(const Object& instance, Object* result) {
 }
 
 Definition* LoadFieldInstr::Canonicalize(FlowGraph* flow_graph) {
-  if (!HasUses()) return NULL;
+  if (!HasUses()) return nullptr;
 
   if (IsImmutableLengthLoad()) {
-    // For fixed length arrays if the array is the result of a known constructor
-    // call we can replace the length load with the length argument passed to
-    // the constructor.
-    StaticCallInstr* call =
-        instance()->definition()->OriginalDefinition()->AsStaticCall();
-    if (call != NULL) {
+    Definition* array = instance()->definition()->OriginalDefinition();
+    if (StaticCallInstr* call = array->AsStaticCall()) {
+      // For fixed length arrays if the array is the result of a known
+      // constructor call we can replace the length load with the length
+      // argument passed to the constructor.
       if (call->is_known_list_constructor() &&
           IsFixedLengthArrayCid(call->Type()->ToCid())) {
         return call->ArgumentAt(1);
       }
-    }
-
-    CreateArrayInstr* create_array =
-        instance()->definition()->OriginalDefinition()->AsCreateArray();
-    if ((create_array != NULL) &&
-        (recognized_kind() == MethodRecognizer::kObjectArrayLength)) {
-      return create_array->num_elements()->definition();
-    }
-
-    // For arrays with guarded lengths, replace the length load
-    // with a constant.
-    LoadFieldInstr* load_array =
-        instance()->definition()->OriginalDefinition()->AsLoadField();
-    if (load_array != NULL) {
+    } else if (CreateArrayInstr* create_array = array->AsCreateArray()) {
+      if (native_field() == NativeFieldDesc::Array_length()) {
+        return create_array->num_elements()->definition();
+      }
+    } else if (LoadFieldInstr* load_array = array->AsLoadField()) {
+      // For arrays with guarded lengths, replace the length load
+      // with a constant.
       const Field* field = load_array->field();
-      if ((field != NULL) && (field->guarded_list_length() >= 0)) {
+      if ((field != nullptr) && (field->guarded_list_length() >= 0)) {
         return flow_graph->GetConstant(
             Smi::Handle(Smi::New(field->guarded_list_length())));
       }
+    }
+  } else if (native_field() != nullptr &&
+             native_field()->kind() == NativeFieldDesc::kTypeArguments) {
+    Definition* array = instance()->definition()->OriginalDefinition();
+    if (StaticCallInstr* call = array->AsStaticCall()) {
+      if (call->is_known_list_constructor()) {
+        return call->ArgumentAt(0);
+      }
+    } else if (CreateArrayInstr* create_array = array->AsCreateArray()) {
+      return create_array->element_type()->definition();
     }
   }
 
@@ -3142,24 +3243,43 @@ CallTargets* CallTargets::CreateAndExpand(Zone* zone, const ICData& ic_data) {
       }
     }
   }
+
   // Spread class-ids to following classes where a lookup yields the same
   // method.
+  const intptr_t max_cid = Isolate::Current()->class_table()->NumCids();
   for (int idx = 0; idx < length; idx++) {
     int upper_limit_cid =
-        (idx == length - 1) ? 1000000000 : targets[idx + 1].cid_start;
+        (idx == length - 1) ? max_cid : targets[idx + 1].cid_start;
     const Function& target = *targets.TargetAt(idx)->target;
     if (MethodRecognizer::PolymorphicTarget(target)) continue;
+    // The code below makes attempt to avoid spreading class-id range
+    // into a suffix that consists purely of abstract classes to
+    // shorten the range.
+    // However such spreading is beneficial when it allows to
+    // merge to consequtive ranges.
+    intptr_t cid_end_including_abstract = targets[idx].cid_end;
     for (int i = targets[idx].cid_end + 1; i < upper_limit_cid; i++) {
       bool class_is_abstract = false;
       if (FlowGraphCompiler::LookupMethodFor(i, name, args_desc, &fn,
                                              &class_is_abstract) &&
           fn.raw() == target.raw()) {
+        cid_end_including_abstract = i;
         if (!class_is_abstract) {
           targets[idx].cid_end = i;
         }
       } else {
         break;
       }
+    }
+
+    // Check if we have a suffix that consists of abstract classes
+    // and expand into it if that would allow us to merge this
+    // range with subsequent range.
+    if ((cid_end_including_abstract > targets[idx].cid_end) &&
+        (idx < length - 1) &&
+        ((cid_end_including_abstract + 1) == targets[idx + 1].cid_start) &&
+        (target.raw() == targets.TargetAt(idx + 1)->target->raw())) {
+      targets[idx].cid_end = cid_end_including_abstract;
     }
   }
   targets.MergeIntoRanges();

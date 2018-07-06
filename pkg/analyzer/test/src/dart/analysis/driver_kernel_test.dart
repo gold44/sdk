@@ -54,7 +54,7 @@ class AnalysisDriverTest_Kernel extends AnalysisDriverTest {
 
   @override
   @failingTest
-  @potentialAnalyzerProblem
+  @FastaProblem('https://github.com/dart-lang/sdk/issues/33642')
   test_const_annotation_notConstConstructor() async {
     await super.test_const_annotation_notConstConstructor();
   }
@@ -66,27 +66,6 @@ class AnalysisDriverTest_Kernel extends AnalysisDriverTest {
     await super.test_const_annotation_withArgs();
   }
 
-  @override
-  @failingTest
-  @potentialAnalyzerProblem
-  test_const_annotation_withoutArgs() async {
-    await super.test_const_annotation_withoutArgs();
-  }
-
-  @override
-  @failingTest
-  @potentialAnalyzerProblem
-  test_const_circular_reference() async {
-    await super.test_const_circular_reference();
-  }
-
-  @override
-  @failingTest
-  @potentialAnalyzerProblem
-  test_const_dependency_sameUnit() async {
-    await super.test_const_dependency_sameUnit();
-  }
-
   @failingTest
   @potentialAnalyzerProblem
   @override
@@ -94,25 +73,11 @@ class AnalysisDriverTest_Kernel extends AnalysisDriverTest {
     await super.test_const_externalConstFactory();
   }
 
-  @override
-  @failingTest
-  test_const_implicitCreation() {
-    // Bad state: No data for () at 69
-    return super.test_const_implicitCreation();
-  }
-
   @failingTest
   @FastaProblem('https://github.com/dart-lang/sdk/issues/31555')
   @override
   test_const_implicitSuperConstructorInvocation() async {
     await super.test_const_implicitSuperConstructorInvocation();
-  }
-
-  @override
-  @failingTest
-  @potentialAnalyzerProblem
-  test_const_simple_topLevelVariable() async {
-    await super.test_const_simple_topLevelVariable();
   }
 
   @failingTest
@@ -282,6 +247,11 @@ class AnalysisDriverTest_Kernel extends AnalysisDriverTest {
   test_results_order() async {
     await super.test_results_order();
   }
+}
+
+/// Tests marked with this annotation fail because of an Analyzer problem.
+class AnalyzerProblem {
+  const AnalyzerProblem(String issueUri);
 }
 
 /// Tests marked with this annotation fail because of a Fasta problem.

@@ -230,7 +230,7 @@ class JsBackendStrategy implements KernelBackendStrategy {
 class JsClosedWorldBuilder {
   final JsKernelToElementMap _elementMap;
   final Map<ClassEntity, ClassHierarchyNode> _classHierarchyNodes =
-      <ClassEntity, ClassHierarchyNode>{};
+      new ClassHierarchyNodesMap();
   final Map<ClassEntity, ClassSet> _classSets = <ClassEntity, ClassSet>{};
   final KernelClosureConversionTask _closureConversionTask;
   final CompilerOptions _options;
@@ -289,10 +289,10 @@ class JsClosedWorldBuilder {
       });
     }
 
-    closedWorld
+    closedWorld.classHierarchy
         .getClassHierarchyNode(closedWorld.commonElements.objectClass)
         .forEachSubclass((ClassEntity cls) {
-      convertClassSet(closedWorld.getClassSet(cls));
+      convertClassSet(closedWorld.classHierarchy.getClassSet(cls));
     }, ClassHierarchyNode.ALL);
 
     Set<MemberEntity> liveInstanceMembers =

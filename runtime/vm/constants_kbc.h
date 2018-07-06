@@ -113,6 +113,11 @@ namespace dart {
 //    Jump to the given target. Target is specified as offset from the PC of the
 //    jump instruction.
 //
+//  - JumpIfNoAsserts target
+//
+//    Jump to the given target if assertions are not enabled.
+//    Target is specified as offset from the PC of the jump instruction.
+//
 //  - Return R; ReturnTOS
 //
 //    Return to the caller using either a value from the given register or a
@@ -772,6 +777,7 @@ namespace dart {
   V(DropR,                                 A, num, ___, ___)                   \
   V(Drop,                                  A, num, ___, ___)                   \
   V(Jump,                                  T, tgt, ___, ___)                   \
+  V(JumpIfNoAsserts,                       T, tgt, ___, ___)                   \
   V(Return,                                A, reg, ___, ___)                   \
   V(ReturnTOS,                             0, ___, ___, ___)                   \
   V(Move,                                A_X, reg, xeg, ___)                   \
@@ -1073,7 +1079,14 @@ class KernelBytecode {
     }
   }
 
+  static const uint8_t kNativeCallToGrowableListArgc = 2;
+
   DART_FORCE_INLINE static uint8_t DecodeArgc(KBCInstr call) {
+    if (DecodeOpcode(call) == KernelBytecode::kNativeCall) {
+      // The only NativeCall redirecting to a bytecode function is the call
+      // to new _GrowableList<E>(0).
+      return kNativeCallToGrowableListArgc;
+    }
     ASSERT(IsCallOpcode(call));
     return (call >> 8) & 0xFF;
   }

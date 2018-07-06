@@ -1213,8 +1213,9 @@ class ClassElementImpl extends AbstractClassElementImpl
         visitedClasses.add(this);
       }
       try {
-        ClassElementImpl superElement = AbstractClassElementImpl
-            .getImpl(supertype.element) as ClassElementImpl;
+        ClassElementImpl superElement =
+            AbstractClassElementImpl.getImpl(supertype.element)
+                as ClassElementImpl;
         constructorsToForward =
             superElement._computeMixinAppConstructors(visitedClasses);
       } finally {
@@ -2482,7 +2483,7 @@ class ConstructorElementImpl extends ExecutableElementImpl
     if (_redirectedConstructor == null) {
       if (_kernelConstructor != null || _kernelFactory != null) {
         _redirectedConstructor = enclosingUnit._kernelContext
-            .getRedirectedConstructor(_kernelConstructor, _kernelFactory);
+            .getRedirectedConstructor(this, _kernelConstructor, _kernelFactory);
       }
       if (serializedExecutable != null) {
         if (serializedExecutable.isRedirectedConstructor) {
@@ -4592,8 +4593,8 @@ class ExportElementImpl extends UriReferencedElementImpl
             ImportElementImpl._buildCombinatorsForKernel(_kernel.combinators);
       }
       if (_unlinkedExportPublic != null) {
-        _combinators = ImportElementImpl
-            ._buildCombinators(_unlinkedExportPublic.combinators);
+        _combinators = ImportElementImpl._buildCombinators(
+            _unlinkedExportPublic.combinators);
       }
     }
     return _combinators ?? const <NamespaceCombinator>[];
@@ -5145,8 +5146,9 @@ class FunctionElementImpl_forLUB extends FunctionElementImpl {
 
   @override
   List<ParameterElement> get parameters {
-    return _parameters ??= ParameterElementImpl
-        .resynthesizeList(_entityRef.syntheticParams, this, synthetic: true);
+    return _parameters ??= ParameterElementImpl.resynthesizeList(
+        _entityRef.syntheticParams, this,
+        synthetic: true);
   }
 
   @override
@@ -5491,8 +5493,17 @@ class GenericTypeAliasElementImpl extends ElementImpl
   GenericFunctionTypeElementImpl get function {
     if (_function == null) {
       if (_kernel != null) {
-        _function =
-            new GenericFunctionTypeElementImpl.forKernel(this, _kernel.type);
+        var kernelType = _kernel.type;
+        if (kernelType is kernel.FunctionType) {
+          _function =
+              new GenericFunctionTypeElementImpl.forKernel(this, kernelType);
+        } else {
+          // Error recovery.
+          _function = new GenericFunctionTypeElementImpl.forOffset(-1);
+          _function.enclosingElement = this;
+          _function.returnType = DynamicTypeImpl.instance;
+          _function.parameters = <ParameterElement>[];
+        }
       }
       if (_unlinkedTypedef != null) {
         if (_unlinkedTypedef.style == TypedefStyle.genericFunctionType) {
@@ -5645,6 +5656,15 @@ class GenericTypeAliasElementImpl extends ElementImpl
       }
     }
     return null;
+  }
+
+  @override
+  FunctionType instantiate(List<DartType> argumentTypes) {
+    if (argumentTypes.length != typeParameters.length) {
+      throw new ArgumentError('Wrong number of type arguments supplied');
+    }
+    if (typeParameters.isEmpty) return function.type;
+    return typeAfterSubstitution(argumentTypes);
   }
 
   /**
@@ -6207,7 +6227,7 @@ abstract class KernelUnitResynthesizerContext {
    * Return the [ConstructorElementImpl] to which the given [kernelConstructor]
    * or [kernelFactory] redirects.
    */
-  ConstructorElementImpl getRedirectedConstructor(
+  ConstructorElement getRedirectedConstructor(ElementImpl context,
       kernel.Constructor kernelConstructor, kernel.Procedure kernelFactory);
 
   /**
@@ -8382,6 +8402,10 @@ class ParameterElementImpl extends VariableElementImpl
 
   @override
   List<ElementAnnotation> get metadata {
+    if (_kernel != null) {
+      _metadata ??=
+          enclosingUnit._kernelContext.buildAnnotations(_kernel.annotations);
+    }
     if (unlinkedParam != null) {
       return _metadata ??=
           _buildAnnotations(enclosingUnit, unlinkedParam.annotations);

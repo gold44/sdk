@@ -4,7 +4,6 @@
 
 import 'package:analyzer/src/dart/error/hint_codes.dart';
 import 'package:analyzer/src/generated/source.dart';
-import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 import 'non_hint_code_driver_test.dart';
@@ -37,54 +36,6 @@ class NonHintCodeTest_Kernel extends NonHintCodeTest_Driver {
   @override
   bool get useCFE => true;
 
-  @override
-  @failingTest
-  test_deprecatedAnnotationUse_namedParameter_inDefiningFunction() {
-    // Failed assertion: line 215 pos 14: 'node.parent is PartOfDirective ||
-    // node.parent is EnumConstantDeclaration': is not true.
-    return super
-        .test_deprecatedAnnotationUse_namedParameter_inDefiningFunction();
-  }
-
-  @override
-  @failingTest
-  test_deprecatedAnnotationUse_namedParameter_inDefiningLocalFunction() {
-    // Failed to resolve 1 nodes
-    return super
-        .test_deprecatedAnnotationUse_namedParameter_inDefiningLocalFunction();
-  }
-
-  @override
-  @failingTest
-  test_deprecatedAnnotationUse_namedParameter_inDefiningMethod() {
-    // Failed assertion: line 215 pos 14: 'node.parent is PartOfDirective ||
-    // node.parent is EnumConstantDeclaration': is not true.
-    return super.test_deprecatedAnnotationUse_namedParameter_inDefiningMethod();
-  }
-
-  @override
-  @failingTest
-  test_deprecatedAnnotationUse_namedParameter_inNestedLocalFunction() {
-    // Failed assertion: line 215 pos 14: 'node.parent is PartOfDirective ||
-    // node.parent is EnumConstantDeclaration': is not true.
-    return super
-        .test_deprecatedAnnotationUse_namedParameter_inNestedLocalFunction();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_deprecatedMemberUse_inDeprecatedClass() async {
-    await super.test_deprecatedMemberUse_inDeprecatedClass();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_deprecatedMemberUse_inDeprecatedFunction() async {
-    await super.test_deprecatedMemberUse_inDeprecatedFunction();
-  }
-
   @failingTest
   @override
   @potentialAnalyzerProblem
@@ -92,27 +43,6 @@ class NonHintCodeTest_Kernel extends NonHintCodeTest_Driver {
     // LibraryAnalyzer is not applying resolution data to annotations on
     // directives.
     await super.test_deprecatedMemberUse_inDeprecatedLibrary();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_deprecatedMemberUse_inDeprecatedMethod() async {
-    await super.test_deprecatedMemberUse_inDeprecatedMethod();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_deprecatedMemberUse_inDeprecatedMethod_inDeprecatedClass() async {
-    await super.test_deprecatedMemberUse_inDeprecatedMethod_inDeprecatedClass();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_missingReturn_alwaysThrows() async {
-    await super.test_missingReturn_alwaysThrows();
   }
 
   @override
@@ -129,76 +59,6 @@ class NonHintCodeTest_Kernel extends NonHintCodeTest_Driver {
     // Expected 1 errors of type
     // StrongModeCode.STRONG_MODE_INVALID_METHOD_OVERRIDE, found 0
     return super.test_overrideOnNonOverridingField_inSuperclass();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingGetter_inInterface() async {
-    await super.test_overrideOnNonOverridingGetter_inInterface();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingGetter_inSuperclass() async {
-    await super.test_overrideOnNonOverridingGetter_inSuperclass();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingMethod_inInterface() async {
-    await super.test_overrideOnNonOverridingMethod_inInterface();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingMethod_inSuperclass() async {
-    await super.test_overrideOnNonOverridingMethod_inSuperclass();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingMethod_inSuperclass_abstract() async {
-    await super.test_overrideOnNonOverridingMethod_inSuperclass_abstract();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingSetter_inInterface() async {
-    await super.test_overrideOnNonOverridingSetter_inInterface();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_overrideOnNonOverridingSetter_inSuperclass() async {
-    await super.test_overrideOnNonOverridingSetter_inSuperclass();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_proxy_annotation_prefixed() async {
-    await super.test_proxy_annotation_prefixed();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_proxy_annotation_prefixed2() async {
-    await super.test_proxy_annotation_prefixed2();
-  }
-
-  @override
-  @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/33567')
-  test_proxy_annotation_prefixed3() async {
-    await super.test_proxy_annotation_prefixed3();
   }
 
   @override
@@ -247,11 +107,10 @@ void g(bool c) {
 
   @override
   @failingTest
-  @FastaProblem('https://github.com/dart-lang/sdk/issues/28434')
+  @potentialAnalyzerProblem
   test_unusedImport_annotationOnDirective() async {
-    // TODO(scheglov) We don't yet parse annotations on import directives.
-    fail('This test fails in checked mode (indirectly)');
-//    await super.test_unusedImport_annotationOnDirective();
+    // Expected 0 errors of type HintCode.UNUSED_IMPORT, found 1 (23)
+    await super.test_unusedImport_annotationOnDirective();
   }
 
   @failingTest
@@ -259,5 +118,13 @@ void g(bool c) {
   @potentialAnalyzerProblem
   test_unusedImport_metadata() async {
     await super.test_unusedImport_metadata();
+  }
+
+  @override
+  @failingTest
+  @FastaProblem('https://github.com/dart-lang/sdk/issues/33678')
+  test_withSuperMixin() async {
+    // Expected 0 errors of type StaticTypeWarningCode.UNDEFINED_SUPER_GETTER, found 1 (82)
+    await super.test_withSuperMixin();
   }
 }

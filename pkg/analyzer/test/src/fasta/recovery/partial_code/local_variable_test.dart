@@ -12,23 +12,6 @@ main() {
 
 class LocalVariableTest extends PartialCodeTest {
   buildAll() {
-    List<String> allExceptEof = <String>[
-      'assert',
-      'block',
-      'break',
-      'continue',
-      'do',
-      'if',
-      'for',
-      'labeled',
-      'localFunctionNonVoid',
-      'localFunctionVoid',
-      'localVariable',
-      'switch',
-      'try',
-      'return',
-      'while'
-    ];
     buildTests(
         'local_variable',
         [
@@ -139,7 +122,14 @@ class LocalVariableTest extends PartialCodeTest {
                 ParserErrorCode.EXPECTED_TOKEN
               ],
               "var a = _s_;",
-              failing: allExceptEof),
+              failing: [
+                'block',
+                'assert',
+                'labeled',
+                'localFunctionNonVoid',
+                'localFunctionVoid',
+                'return'
+              ]),
           new TestDescriptor('varNameEqualsExpression', 'var a = b',
               [ParserErrorCode.EXPECTED_TOKEN], "var a = b;"),
         ],

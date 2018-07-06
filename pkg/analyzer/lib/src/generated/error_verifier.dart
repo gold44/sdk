@@ -929,9 +929,7 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
           _checkForConstWithNonConst(node);
           _checkForConstWithUndefinedConstructor(
               node, constructorName, typeName);
-          if (!_options.strongMode) {
-            _checkForConstWithTypeParameters(typeName);
-          }
+          _checkForConstWithTypeParameters(typeName);
           _checkForConstDeferredClass(node, constructorName, typeName);
         } else {
           _checkForNewWithUndefinedConstructor(node, constructorName, typeName);
@@ -961,7 +959,7 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
   Object visitListLiteral(ListLiteral node) {
     TypeArgumentList typeArguments = node.typeArguments;
     if (typeArguments != null) {
-      if (!_options.strongMode && node.isConst) {
+      if (node.isConst) {
         NodeList<TypeAnnotation> arguments = typeArguments.arguments;
         if (arguments.isNotEmpty) {
           _checkForInvalidTypeArgumentInConstTypedLiteral(arguments,
@@ -981,7 +979,7 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
     TypeArgumentList typeArguments = node.typeArguments;
     if (typeArguments != null) {
       NodeList<TypeAnnotation> arguments = typeArguments.arguments;
-      if (!_options.strongMode && arguments.isNotEmpty) {
+      if (arguments.isNotEmpty) {
         if (node.isConst) {
           _checkForInvalidTypeArgumentInConstTypedLiteral(arguments,
               CompileTimeErrorCode.INVALID_TYPE_ARGUMENT_IN_CONST_MAP);
@@ -1161,6 +1159,7 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
     _checkForAmbiguousImport(node);
     _checkForReferenceBeforeDeclaration(node);
     _checkForImplicitThisReferenceInInitializer(node);
+    _checkForTypeParameterIdentifierReferencedByStatic(node);
     if (!_isUnqualifiedReferenceToNonLocalStaticMemberAllowed(node)) {
       _checkForUnqualifiedReferenceToNonLocalStaticMember(node);
     }
@@ -1239,6 +1238,7 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
     _checkForTypeParameterSupertypeOfItsBound(node);
     _checkForTypeAnnotationDeferredClass(node.bound);
     _checkForImplicitDynamicType(node.bound);
+    _checkForGenericFunctionType(node.bound);
     if (_options.strongMode) node.bound?.accept(_uninstantiatedBoundChecker);
     return super.visitTypeParameter(node);
   }
@@ -3241,11 +3241,13 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
       return;
     }
     // check for mixins
-    if (_enclosingClass.mixins.length != 0) {
-      _errorReporter.reportErrorForNode(
-          CompileTimeErrorCode.CONST_CONSTRUCTOR_WITH_MIXIN,
-          constructor.returnType);
-      return;
+    for (var mixin in _enclosingClass.mixins) {
+      if (mixin.element.fields.isNotEmpty) {
+        _errorReporter.reportErrorForNode(
+            CompileTimeErrorCode.CONST_CONSTRUCTOR_WITH_MIXIN_WITH_FIELD,
+            constructor.returnType);
+        return;
+      }
     }
     // try to find and check super constructor invocation
     for (ConstructorInitializer initializer in constructor.initializers) {
@@ -4180,6 +4182,19 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
         type.typeArguments.any((t) => t.isDynamic)) {
       _errorReporter.reportErrorForNode(
           StrongModeCode.IMPLICIT_DYNAMIC_TYPE, node, [type]);
+    }
+  }
+
+  void _checkForGenericFunctionType(TypeAnnotation node) {
+    if (node == null) {
+      return;
+    }
+    DartType type = node.type;
+    if (type is FunctionType && type.typeFormals.isNotEmpty) {
+      _errorReporter.reportErrorForNode(
+          CompileTimeErrorCode.GENERIC_FUNCTION_TYPE_CANNOT_BE_BOUND,
+          node,
+          [type]);
     }
   }
 
@@ -5712,35 +5727,63 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
 
       var toType = expectedType;
       var fromType = expressionType;
-
-      if (isArrowFunction) {
-        if (_inAsync && toType.flattenFutures(_typeSystem).isVoid) {
-          return;
-        } else if (toType.isVoid) {
-          return;
-        }
+      if (_inAsync) {
+        toType = toType.flattenFutures(_typeSystem);
+        fromType = fromType.flattenFutures(_typeSystem);
       }
 
+      // Anything can be returned to `void` in an arrow bodied function
+      // or to `Future<void>` in an async arrow bodied function.
+      if (isArrowFunction && toType.isVoid) {
+        return;
+      }
+
+      // Anything can be returned to `dynamic`, or to `Future<dynamic>` in
+      // an async function.
       if (toType.isDynamic) {
         return;
       }
 
+      // Anything can be return to `Future<Null>` in an async function
+      if (_inAsync && toType.isDartCoreNull) {
+        return;
+      }
+
+      // If we're not in one of the `void` related special cases
+      // just check assignability.
+      if (!expectedType.isVoid && !fromType.isVoid) {
+        var checkWithType = (!_inAsync)
+            ? fromType
+            : _typeProvider.futureType.instantiate(<DartType>[fromType]);
+        if (_expressionIsAssignableAtType(
+            returnExpression, checkWithType, expectedType)) {
+          return;
+        }
+      }
+
+      // Void related special cases.  If the expression type flattens
+      // to `void`, and the expected type doesn't, then it's an error.
+      // Otherwise:
       if (toType.isVoid) {
-        if (fromType.isVoid) {
-          return;
-        }
-        if (!_inAsync && fromType.isDynamic ||
-            fromType.isDartCoreNull ||
-            fromType.isBottom) {
-          return;
-        }
-      } else if (!fromType.isVoid) {
-        if (_inAsync) {
-          fromType = _typeProvider.futureType
-              .instantiate(<DartType>[fromType.flattenFutures(_typeSystem)]);
-        }
-        if (_expressionIsAssignableAtType(returnExpression, fromType, toType)) {
-          return;
+        // In the case that the expected type is `void`
+        if (expectedType.isVoid) {
+          // Valid if the expression type is void, dynamic or Null
+          if (expressionType.isVoid ||
+              expressionType.isDynamic ||
+              expressionType.isDartCoreNull ||
+              expressionType.isBottom) {
+            return;
+          }
+        } else {
+          // The expected type is Future<void> or FutureOr<void>,
+          // and the return is valid if the expression type flattens
+          // to void, dynamic, or Null.
+          if (fromType.isVoid ||
+              fromType.isDynamic ||
+              fromType.isDartCoreNull ||
+              fromType.isBottom) {
+            return;
+          }
         }
       }
       reportTypeError();
@@ -5905,7 +5948,9 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
    * Verify that the type arguments in the given [typeName] are all within
    * their bounds.
    *
-   * See [StaticTypeWarningCode.TYPE_ARGUMENT_NOT_MATCHING_BOUNDS].
+   * See [StaticTypeWarningCode.TYPE_ARGUMENT_NOT_MATCHING_BOUNDS],
+   * [CompileTimeErrorCode.TYPE_ARGUMENT_NOT_MATCHING_BOUNDS],
+   * [CompileTimeErrorCode.GENERIC_FUNCTION_CANNOT_BE_BOUND].
    */
   void _checkForTypeArgumentNotMatchingBounds(TypeName typeName) {
     if (typeName.typeArguments == null) {
@@ -5931,11 +5976,19 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
       for (int i = 0; i < loopThroughIndex; i++) {
         TypeAnnotation argumentNode = argumentNodes[i];
         DartType argType = argumentNode.type;
+        if (argType is FunctionType && argType.typeFormals.isNotEmpty) {
+          _errorReporter.reportTypeErrorForNode(
+              CompileTimeErrorCode.GENERIC_FUNCTION_CANNOT_BE_TYPE_ARGUMENT,
+              argumentNode,
+              [argType.typeFormals.join(', ')]);
+          continue;
+        }
         DartType boundType = parameterElements[i].bound;
         if (argType != null && boundType != null) {
           if (shouldSubstitute) {
             boundType = boundType.substitute2(arguments, parameterTypes);
           }
+
           if (!_typeSystem.isSubtypeOf(argType, boundType)) {
             ErrorCode errorCode;
             if (_isInConstInstanceCreation) {
@@ -5949,6 +6002,21 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
                 errorCode, argumentNode, [argType, boundType]);
           }
         }
+      }
+    }
+  }
+
+  void _checkForTypeParameterIdentifierReferencedByStatic(
+      SimpleIdentifier identifier) {
+    var element = identifier.staticElement;
+    if (element is TypeParameterElement &&
+        element.enclosingElement is ClassElement) {
+      if (_isInStaticMethod || _isInStaticVariableDeclaration) {
+        // The class's type parameters are not in scope for static methods.
+        // However all other type parameters are legal (e.g. the static method's
+        // type parameters, or a local function's type parameters).
+        _errorReporter.reportErrorForNode(
+            StaticWarningCode.TYPE_PARAMETER_REFERENCED_BY_STATIC, identifier);
       }
     }
   }
@@ -6455,6 +6523,15 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
         //     <T extends Clonable<T>>
         //
         DartType argType = typeArgs[i];
+
+        if (argType is FunctionType && argType.typeFormals.isNotEmpty) {
+          _errorReporter.reportTypeErrorForNode(
+              CompileTimeErrorCode.GENERIC_FUNCTION_CANNOT_BE_TYPE_ARGUMENT,
+              typeArgumentList[i],
+              [argType.typeFormals.join(', ')]);
+          continue;
+        }
+
         DartType bound =
             fnTypeParams[i].bound.substitute2(typeArgs, fnTypeParams);
         if (!_typeSystem.isSubtypeOf(argType, bound)) {

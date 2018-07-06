@@ -194,6 +194,11 @@ class KernelFactory
   }
 
   @override
+  Statement emptyStatement(Token semicolon) {
+    return null;
+  }
+
+  @override
   Statement expressionStatement(StatementJudgment judgment, int fileOffset,
       Expression expression, Token semicolon) {
     return judgment;
@@ -229,7 +234,7 @@ class KernelFactory
       DartType loopVariableType,
       int writeOffset,
       DartType writeVariableType,
-      int writeVariableDeclarationOffset,
+      covariant Object writeVariableBinder,
       Node writeTarget) {
     return judgment;
   }
@@ -634,7 +639,7 @@ class KernelFactory
       ExpressionJudgment judgment,
       int fileOffset,
       DartType writeContext,
-      int writeVariableDeclarationOffset,
+      covariant VariableDeclaration writeVariableBinder,
       Node combiner,
       DartType inferredType) {
     return judgment;
@@ -659,12 +664,6 @@ class KernelFactory
       bool isInCascade,
       covariant VariableDeclaration variableBinder,
       DartType inferredType) {
-    return judgment;
-  }
-
-  @override
-  Expression variableSet(ExpressionJudgment judgment, int fileOffset,
-      covariant VariableDeclaration variableBinder, DartType inferredType) {
     return judgment;
   }
 

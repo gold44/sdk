@@ -4,6 +4,75 @@
 
 ### Language
 
+#### Strong Mode
+
+### Dart VM
+
+### Tool Changes
+
+#### dartfmt
+
+#### Pub
+
+#### Dart2js
+
+#### Analyzer
+
+  * The analysis server will now only analyze code in Dart 2 mode ('strong
+    mode'). It will emit warnings for analysis options files that have
+    `strong-mode: false` set (and will emit a hint for `strong-mode: true`,
+    which is no longer necessary).
+  * The dartanalyzer `--strong` flag is now deprecated and ignored; the
+    command-line analyzer now only analyzes code in strong mode.
+
+#### Other Tools
+
+### Core library changes
+
+## 2.0.0-dev.67.0
+
+### Language
+
+* New member conflict rules have been implemented. Most cases of conflicting
+  members with the same name are now static errors. Issue [33235][issue 33235].
+
+[issue 33235]: https://github.com/dart-lang/sdk/issues/33235
+
+### Tool Changes
+
+#### dartfmt
+
+  * Format expressions inside string interpolation.
+
+### Core library changes
+
+  * `dart:io`
+    * Adds `HttpClient.connectionTimeout`.
+    * Adds `{Socket,RawSocket,SecureSocket}.startConnect`. These return a
+      `ConnectionTask`, which can be used to cancel an in-flight connection
+      attempt.
+
+## 2.0.0-dev.66.0
+
+## 2.0.0-dev.65.0
+
+### Tool Changes
+
+#### dartfmt
+
+  * Add `--fix` to remove unneeded `new` and `const` keywords, and change `:`
+    to `=` before named parameter default values.
+  * Change formatting rules around static methods to uniformly format code with
+    and without `new` and `const`.
+
+#### Pub
+
+  * Pub no longer supports running with `DART_VM_OPTIONS=--no-preview-dart2`.
+
+## 2.0.0-dev.64.1
+
+### Language
+
 * Numerous corner case bugs around return statements in synchronous and
 asynchronous functions fixed.  Specifically:
   * Issues [31887][issue 31887], [32881][issue 32881]. Future flattening should
@@ -13,7 +82,7 @@ asynchronous functions fixed.  Specifically:
   * Issue [32233][issue 32233]. Errors when returning `FutureOr`
   * Issue [33218][issue 33218]. Returns in functions with void related types
   * Issue [31278][issue 31278]. Incorrect hint on empty returns in async
-    functions 
+    functions
 * An empty `return;` in an async function with return type `Future<Object>` will
     not report an error.
 * `return exp;` where `exp` has type `void` in an async function is now an error
@@ -21,14 +90,18 @@ unless the return type of the function is `void` or `dynamic`.
 * Mixed return statements of the form `return;` and `return exp;` are now
 allowed when `exp` has type `void`.
 
+* A compile time error is emitted for any literal which cannot be exactly
+  represented on the target platform. As a result, dart2js and DDC will
+  report errors if an integer literal cannot be represented exactly in
+  JavaScript. Issue [33282][issue 33282].
+
 [issue 31887]: https://github.com/dart-lang/sdk/issues/31887
 [issue 30638]: https://github.com/dart-lang/sdk/issues/30638
 [issue 32233]: https://github.com/dart-lang/sdk/issues/32233
 [issue 32881]: https://github.com/dart-lang/sdk/issues/32881
 [issue 33218]: https://github.com/dart-lang/sdk/issues/33218
 [issue 31278]: https://github.com/dart-lang/sdk/issues/31278
-
-#### Strong Mode
+[issue 33282]: https://github.com/dart-lang/sdk/issues/33282
 
 ### Dart VM
 
@@ -41,10 +114,6 @@ allowed when `exp` has type `void`.
   release, when we no longer support Dart 1.0.
 
 ### Tool Changes
-
-#### Pub
-
-* Pub no longer supports running with `DART_VM_OPTIONS=--no-preview-dart2`.
 
 #### Dart2js
 
@@ -60,8 +129,6 @@ allowed when `exp` has type `void`.
   * `--no-preview-dart-2`: a temporary flag to revert to Dart 1.0. This flag is
     temporary and only meant to help users in the migration process. The flag
     will go away in a future dev release, when we no longer support Dart 1.0.
-
-#### Other Tools
 
 ### Core library changes
 

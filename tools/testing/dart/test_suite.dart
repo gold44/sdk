@@ -394,22 +394,22 @@ abstract class TestSuite {
 
   String createOutputDirectory(Path testPath) {
     var checked = configuration.isChecked ? '-checked' : '';
-    var strong = configuration.isStrong ? '-strong' : '';
+    var legacy = configuration.noPreviewDart2 ? '-legacy' : '';
     var minified = configuration.isMinified ? '-minified' : '';
     var sdk = configuration.useSdk ? '-sdk' : '';
     var dirName = "${configuration.compiler.name}-${configuration.runtime.name}"
-        "$checked$strong$minified$sdk";
+        "$checked$legacy$minified$sdk";
     return createGeneratedTestDirectoryHelper("tests", dirName, testPath);
   }
 
   String createCompilationOutputDirectory(Path testPath) {
     var checked = configuration.isChecked ? '-checked' : '';
-    var strong = configuration.isStrong ? '-strong' : '';
+    var legacy = configuration.noPreviewDart2 ? '-legacy' : '';
     var minified = configuration.isMinified ? '-minified' : '';
     var csp = configuration.isCsp ? '-csp' : '';
     var sdk = configuration.useSdk ? '-sdk' : '';
     var dirName = "${configuration.compiler.name}"
-        "$checked$strong$minified$csp$sdk";
+        "$checked$legacy$minified$csp$sdk";
     return createGeneratedTestDirectoryHelper(
         "compilations", dirName, testPath);
   }
@@ -481,9 +481,6 @@ class VMTestSuite extends TestSuite {
       args.add('--use-dart-frontend');
       // '--dfe' has to be the first argument for run_vm_test to pick it up.
       args.insert(0, '--dfe=$buildDir/gen/kernel-service.dart.snapshot');
-    }
-
-    if (configuration.isStrong) {
       args.add('--strong');
     }
 
@@ -725,7 +722,7 @@ class StandardTestSuite extends TestSuite {
       String pattern = regex.pattern;
       if (pattern.contains("/")) {
         String lastPart = pattern.substring(pattern.lastIndexOf("/") + 1);
-        if (int.parse(lastPart, onError: (_) => -1) >= 0 ||
+        if (int.tryParse(lastPart) != null ||
             lastPart.toLowerCase() == "none") {
           pattern = pattern.substring(0, pattern.lastIndexOf("/"));
         }
@@ -1300,11 +1297,6 @@ class StandardTestSuite extends TestSuite {
       if (filePath.filename.contains("dart2js") ||
           filePath.directoryPath.segments().last.contains('html_common')) {
         args.add("--use-dart2js-libraries");
-      }
-      if (configuration.noPreviewDart2) {
-        args.add("--no-preview-dart-2");
-      } else {
-        args.add("--preview-dart-2");
       }
     }
 

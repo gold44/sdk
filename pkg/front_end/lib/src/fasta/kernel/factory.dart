@@ -132,6 +132,8 @@ abstract class Factory<Expression, Statement, Initializer, Type> {
   Expression doubleLiteral(ExpressionJudgment judgment, int fileOffset,
       Token literal, double value, DartType inferredType);
 
+  Statement emptyStatement(Token semicolon);
+
   Statement expressionStatement(StatementJudgment judgment, int fileOffset,
       Expression expression, Token semicolon);
 
@@ -161,7 +163,7 @@ abstract class Factory<Expression, Statement, Initializer, Type> {
       DartType loopVariableType,
       int writeOffset,
       DartType writeVariableType,
-      int writeVariableDeclarationOffset,
+      covariant Object writeVariableBinder,
       Node writeTarget);
 
   Statement forStatement(
@@ -421,7 +423,7 @@ abstract class Factory<Expression, Statement, Initializer, Type> {
       ExpressionJudgment judgment,
       int fileOffset,
       DartType writeContext,
-      int writeVariableDeclarationOffset,
+      covariant Object writeVariableBinder,
       Node combiner,
       DartType inferredType);
 
@@ -433,9 +435,6 @@ abstract class Factory<Expression, Statement, Initializer, Type> {
 
   Expression variableGet(ExpressionJudgment judgment, int fileOffset,
       bool isInCascade, covariant Object variableBinder, DartType inferredType);
-
-  Expression variableSet(ExpressionJudgment judgment, int fileOffset,
-      covariant Object variableBinder, DartType inferredType);
 
   Statement whileStatement(
       StatementJudgment judgment,

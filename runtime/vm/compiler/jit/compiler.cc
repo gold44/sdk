@@ -155,11 +155,10 @@ FlowGraph* DartCompilationPipeline::BuildFlowGraph(
     intptr_t osr_id,
     bool optimized) {
   if (UseKernelFrontEndFor(parsed_function)) {
-    kernel::FlowGraphBuilder builder(
-        parsed_function->function().kernel_offset(), parsed_function,
-        ic_data_array,
-        /* not building var desc */ NULL,
-        /* not inlining */ NULL, optimized, osr_id);
+    kernel::FlowGraphBuilder builder(parsed_function, ic_data_array,
+                                     /* not building var desc */ NULL,
+                                     /* not inlining */ NULL, optimized,
+                                     osr_id);
     FlowGraph* graph = builder.BuildGraph();
 #if defined(DART_USE_INTERPRETER)
     ASSERT((graph != NULL) || parsed_function->function().HasBytecode());
@@ -1365,8 +1364,7 @@ void Compiler::ComputeLocalVarDescriptors(const Code& code) {
     } else {
       parsed_function->EnsureKernelScopes();
       kernel::FlowGraphBuilder builder(
-          parsed_function->function().kernel_offset(), parsed_function,
-          *ic_data_array, context_level_array,
+          parsed_function, *ic_data_array, context_level_array,
           /* not inlining */ NULL, false, Compiler::kNoOSRDeoptId);
       builder.BuildGraph();
     }
@@ -1495,9 +1493,15 @@ RawObject* Compiler::EvaluateStaticInitializer(const Field& field) {
       DartCompilationPipeline pipeline;
       CompileParsedFunctionHelper helper(parsed_function, false, kNoOSRDeoptId);
       const Code& code = Code::Handle(helper.Compile(&pipeline));
+      const Function& initializer = parsed_function->function();
       if (!code.IsNull()) {
-        const Function& initializer = parsed_function->function();
         code.set_var_descriptors(Object::empty_var_descriptors());
+#if defined(DART_USE_INTERPRETER)
+      }
+      // In case the initializer has bytecode, the compilation step above only
+      // loaded the bytecode without generating code.
+      if (!code.IsNull() || initializer.HasBytecode()) {
+#endif
         // Invoke the function to evaluate the expression.
         return DartEntry::InvokeFunction(initializer, Object::empty_array());
       }

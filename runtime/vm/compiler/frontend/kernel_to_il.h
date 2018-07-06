@@ -16,6 +16,7 @@
 #include "vm/compiler/backend/flow_graph.h"
 #include "vm/compiler/backend/il.h"
 #include "vm/compiler/frontend/flow_graph_builder.h"
+#include "vm/compiler/frontend/kernel_translation_helper.h"
 
 namespace dart {
 namespace kernel {
@@ -54,33 +55,6 @@ class KernelConstMapKeyEqualsTraits {
   }
 };
 typedef UnorderedHashMap<KernelConstMapKeyEqualsTraits> KernelConstantsMap;
-
-template <typename K, typename V>
-class Map : public DirectChainedHashMap<RawPointerKeyValueTrait<K, V> > {
- public:
-  typedef typename RawPointerKeyValueTrait<K, V>::Key Key;
-  typedef typename RawPointerKeyValueTrait<K, V>::Value Value;
-  typedef typename RawPointerKeyValueTrait<K, V>::Pair Pair;
-
-  inline void Insert(const Key& key, const Value& value) {
-    Pair pair(key, value);
-    DirectChainedHashMap<RawPointerKeyValueTrait<K, V> >::Insert(pair);
-  }
-
-  inline V Lookup(const Key& key) {
-    Pair* pair =
-        DirectChainedHashMap<RawPointerKeyValueTrait<K, V> >::Lookup(key);
-    if (pair == NULL) {
-      return V();
-    } else {
-      return pair->value;
-    }
-  }
-
-  inline Pair* LookupPair(const Key& key) {
-    return DirectChainedHashMap<RawPointerKeyValueTrait<K, V> >::Lookup(key);
-  }
-};
 
 template <typename V>
 class IntKeyRawPointerValueTrait {
@@ -129,35 +103,6 @@ class IntMap : public DirectChainedHashMap<IntKeyRawPointerValueTrait<V> > {
   }
 };
 
-template <typename K, typename V>
-class MallocMap
-    : public MallocDirectChainedHashMap<RawPointerKeyValueTrait<K, V> > {
- public:
-  typedef typename RawPointerKeyValueTrait<K, V>::Key Key;
-  typedef typename RawPointerKeyValueTrait<K, V>::Value Value;
-  typedef typename RawPointerKeyValueTrait<K, V>::Pair Pair;
-
-  inline void Insert(const Key& key, const Value& value) {
-    Pair pair(key, value);
-    MallocDirectChainedHashMap<RawPointerKeyValueTrait<K, V> >::Insert(pair);
-  }
-
-  inline V Lookup(const Key& key) {
-    Pair* pair =
-        MallocDirectChainedHashMap<RawPointerKeyValueTrait<K, V> >::Lookup(key);
-    if (pair == NULL) {
-      return V();
-    } else {
-      return pair->value;
-    }
-  }
-
-  inline Pair* LookupPair(const Key& key) {
-    return MallocDirectChainedHashMap<RawPointerKeyValueTrait<K, V> >::Lookup(
-        key);
-  }
-};
-
 class BreakableBlock;
 class CatchBlock;
 class FlowGraphBuilder;
@@ -199,279 +144,6 @@ Fragment operator+(const Fragment& first, const Fragment& second);
 Fragment operator<<(const Fragment& fragment, Instruction* next);
 
 typedef ZoneGrowableArray<PushArgumentInstr*>* ArgumentArray;
-
-class ActiveClass {
- public:
-  ActiveClass()
-      : klass(NULL),
-        member(NULL),
-        enclosing(NULL),
-        local_type_parameters(NULL) {}
-
-  bool HasMember() { return member != NULL; }
-
-  bool MemberIsProcedure() {
-    ASSERT(member != NULL);
-    RawFunction::Kind function_kind = member->kind();
-    return function_kind == RawFunction::kRegularFunction ||
-           function_kind == RawFunction::kGetterFunction ||
-           function_kind == RawFunction::kSetterFunction ||
-           function_kind == RawFunction::kMethodExtractor ||
-           member->IsFactory();
-  }
-
-  bool MemberIsFactoryProcedure() {
-    ASSERT(member != NULL);
-    return member->IsFactory();
-  }
-
-  intptr_t MemberTypeParameterCount(Zone* zone);
-
-  intptr_t ClassNumTypeArguments() {
-    ASSERT(klass != NULL);
-    return klass->NumTypeArguments();
-  }
-
-  const char* ToCString() {
-    return member != NULL ? member->ToCString() : klass->ToCString();
-  }
-
-  // The current enclosing class (or the library top-level class).
-  const Class* klass;
-
-  const Function* member;
-
-  // The innermost enclosing function. This is used for building types, as a
-  // parent for function types.
-  const Function* enclosing;
-
-  const TypeArguments* local_type_parameters;
-};
-
-class ActiveClassScope {
- public:
-  ActiveClassScope(ActiveClass* active_class, const Class* klass)
-      : active_class_(active_class), saved_(*active_class) {
-    active_class_->klass = klass;
-  }
-
-  ~ActiveClassScope() { *active_class_ = saved_; }
-
- private:
-  ActiveClass* active_class_;
-  ActiveClass saved_;
-};
-
-class ActiveMemberScope {
- public:
-  ActiveMemberScope(ActiveClass* active_class, const Function* member)
-      : active_class_(active_class), saved_(*active_class) {
-    // The class is inherited.
-    active_class_->member = member;
-  }
-
-  ~ActiveMemberScope() { *active_class_ = saved_; }
-
- private:
-  ActiveClass* active_class_;
-  ActiveClass saved_;
-};
-
-class ActiveTypeParametersScope {
- public:
-  // Set the local type parameters of the ActiveClass to be exactly all type
-  // parameters defined by 'innermost' and any enclosing *closures* (but not
-  // enclosing methods/top-level functions/classes).
-  //
-  // Also, the enclosing function is set to 'innermost'.
-  ActiveTypeParametersScope(ActiveClass* active_class,
-                            const Function& innermost,
-                            Zone* Z);
-
-  // Append the list of the local type parameters to the list in ActiveClass.
-  //
-  // Also, the enclosing function is set to 'function'.
-  ActiveTypeParametersScope(ActiveClass* active_class,
-                            const Function* function,
-                            const TypeArguments& new_params,
-                            Zone* Z);
-
-  ~ActiveTypeParametersScope() { *active_class_ = saved_; }
-
- private:
-  ActiveClass* active_class_;
-  ActiveClass saved_;
-};
-
-class TranslationHelper {
- public:
-  explicit TranslationHelper(Thread* thread);
-
-  virtual ~TranslationHelper() {}
-
-  void Reset();
-
-  void InitFromScript(const Script& script);
-
-  void InitFromKernelProgramInfo(const KernelProgramInfo& info);
-
-  Thread* thread() { return thread_; }
-
-  Zone* zone() { return zone_; }
-
-  Isolate* isolate() { return isolate_; }
-
-  Heap::Space allocation_space() { return allocation_space_; }
-
-  // Access to strings.
-  const TypedData& string_offsets() { return string_offsets_; }
-  void SetStringOffsets(const TypedData& string_offsets);
-
-  const ExternalTypedData& string_data() { return string_data_; }
-  void SetStringData(const ExternalTypedData& string_data);
-
-  const TypedData& canonical_names() { return canonical_names_; }
-  void SetCanonicalNames(const TypedData& canonical_names);
-
-  const ExternalTypedData& metadata_payloads() { return metadata_payloads_; }
-  void SetMetadataPayloads(const ExternalTypedData& metadata_payloads);
-
-  const ExternalTypedData& metadata_mappings() { return metadata_mappings_; }
-  void SetMetadataMappings(const ExternalTypedData& metadata_mappings);
-
-  const Array& constants() { return constants_; }
-  void SetConstants(const Array& constants);
-
-  intptr_t StringOffset(StringIndex index) const;
-  intptr_t StringSize(StringIndex index) const;
-
-  // The address of the backing store of the string with a given index.  If the
-  // backing store is in the VM's heap this address is not safe for GC (call the
-  // function and use the result within a NoSafepointScope).
-  uint8_t* StringBuffer(StringIndex index) const;
-
-  uint8_t CharacterAt(StringIndex string_index, intptr_t index);
-  bool StringEquals(StringIndex string_index, const char* other);
-
-  // Accessors and predicates for canonical names.
-  NameIndex CanonicalNameParent(NameIndex name);
-  StringIndex CanonicalNameString(NameIndex name);
-  bool IsAdministrative(NameIndex name);
-  bool IsPrivate(NameIndex name);
-  bool IsRoot(NameIndex name);
-  bool IsLibrary(NameIndex name);
-  bool IsClass(NameIndex name);
-  bool IsMember(NameIndex name);
-  bool IsField(NameIndex name);
-  bool IsConstructor(NameIndex name);
-  bool IsProcedure(NameIndex name);
-  bool IsMethod(NameIndex name);
-  bool IsGetter(NameIndex name);
-  bool IsSetter(NameIndex name);
-  bool IsFactory(NameIndex name);
-
-  // For a member (field, constructor, or procedure) return the canonical name
-  // of the enclosing class or library.
-  NameIndex EnclosingName(NameIndex name);
-
-  RawInstance* Canonicalize(const Instance& instance);
-
-  const String& DartString(const char* content) {
-    return DartString(content, allocation_space_);
-  }
-  const String& DartString(const char* content, Heap::Space space);
-
-  String& DartString(StringIndex index) {
-    return DartString(index, allocation_space_);
-  }
-  String& DartString(StringIndex string_index, Heap::Space space);
-
-  String& DartString(const uint8_t* utf8_array,
-                     intptr_t len,
-                     Heap::Space space);
-
-  const String& DartSymbolPlain(const char* content) const;
-  String& DartSymbolPlain(StringIndex string_index) const;
-  const String& DartSymbolObfuscate(const char* content) const;
-  String& DartSymbolObfuscate(StringIndex string_index) const;
-
-  String& DartIdentifier(const Library& lib, StringIndex string_index);
-
-  const String& DartClassName(NameIndex kernel_class);
-
-  const String& DartConstructorName(NameIndex constructor);
-
-  const String& DartProcedureName(NameIndex procedure);
-
-  const String& DartSetterName(NameIndex setter);
-  const String& DartSetterName(NameIndex parent, StringIndex setter);
-
-  const String& DartGetterName(NameIndex getter);
-  const String& DartGetterName(NameIndex parent, StringIndex getter);
-
-  const String& DartFieldName(NameIndex field);
-  const String& DartFieldName(NameIndex parent, StringIndex field);
-
-  const String& DartMethodName(NameIndex method);
-  const String& DartMethodName(NameIndex parent, StringIndex method);
-
-  const String& DartFactoryName(NameIndex factory);
-
-  // A subclass overrides these when reading in the Kernel program in order to
-  // support recursive type expressions (e.g. for "implements X" ...
-  // annotations).
-  virtual RawLibrary* LookupLibraryByKernelLibrary(NameIndex library);
-  virtual RawClass* LookupClassByKernelClass(NameIndex klass);
-
-  RawField* LookupFieldByKernelField(NameIndex field);
-  RawFunction* LookupStaticMethodByKernelProcedure(NameIndex procedure);
-  RawFunction* LookupConstructorByKernelConstructor(NameIndex constructor);
-  RawFunction* LookupConstructorByKernelConstructor(const Class& owner,
-                                                    NameIndex constructor);
-  RawFunction* LookupConstructorByKernelConstructor(
-      const Class& owner,
-      StringIndex constructor_name);
-
-  Type& GetCanonicalType(const Class& klass);
-
-  void ReportError(const char* format, ...);
-  void ReportError(const Script& script,
-                   const TokenPosition position,
-                   const char* format,
-                   ...);
-  void ReportError(const Error& prev_error, const char* format, ...);
-  void ReportError(const Error& prev_error,
-                   const Script& script,
-                   const TokenPosition position,
-                   const char* format,
-                   ...);
-
- private:
-  // This will mangle [name_to_modify] if necessary and make the result a symbol
-  // if asked.  The result will be available in [name_to_modify] and it is also
-  // returned.  If the name is private, the canonical name [parent] will be used
-  // to get the import URI of the library where the name is visible.
-  String& ManglePrivateName(NameIndex parent,
-                            String* name_to_modify,
-                            bool symbolize = true,
-                            bool obfuscate = true);
-  String& ManglePrivateName(const Library& library,
-                            String* name_to_modify,
-                            bool symbolize = true,
-                            bool obfuscate = true);
-
-  Thread* thread_;
-  Zone* zone_;
-  Isolate* isolate_;
-  Heap::Space allocation_space_;
-
-  TypedData& string_offsets_;
-  ExternalTypedData& string_data_;
-  TypedData& canonical_names_;
-  ExternalTypedData& metadata_payloads_;
-  ExternalTypedData& metadata_mappings_;
-  Array& constants_;
-};
 
 struct FunctionScope {
   intptr_t kernel_offset;
@@ -564,6 +236,7 @@ class BaseFlowGraphBuilder {
         pending_argument_count_(0) {}
 
   Fragment LoadField(intptr_t offset, intptr_t class_id = kDynamicCid);
+  Fragment LoadNativeField(const NativeFieldDesc* native_field);
   Fragment LoadIndexed(intptr_t index_scale);
 
   void SetTempIndex(Definition* definition);
@@ -693,8 +366,7 @@ class BaseFlowGraphBuilder {
 
 class FlowGraphBuilder : public BaseFlowGraphBuilder {
  public:
-  FlowGraphBuilder(intptr_t kernel_offset,
-                   ParsedFunction* parsed_function,
+  FlowGraphBuilder(ParsedFunction* parsed_function,
                    const ZoneGrowableArray<const ICData*>& ic_data_array,
                    ZoneGrowableArray<intptr_t>* context_level_array,
                    InlineExitCollector* exit_collector,
@@ -704,6 +376,12 @@ class FlowGraphBuilder : public BaseFlowGraphBuilder {
   virtual ~FlowGraphBuilder();
 
   FlowGraph* BuildGraph();
+
+  // Returns true if the given function needs dynamic invocation forwarder:
+  // that is if any of the arguments require checking on the dynamic
+  // call-site: if function has no parameters or has only covariant parameters
+  // as such function already checks all of its parameters.
+  static bool NeedsDynamicInvocationForwarder(const Function& function);
 
  private:
   BlockEntryInstr* BuildPrologue(TargetEntryInstr* normal_entry,
@@ -766,11 +444,6 @@ class FlowGraphBuilder : public BaseFlowGraphBuilder {
   Fragment LoadClassId();
   Fragment LoadField(intptr_t offset, intptr_t class_id = kDynamicCid);
   Fragment LoadField(const Field& field);
-  Fragment LoadNativeField(MethodRecognizer::Kind kind,
-                           intptr_t offset,
-                           const Type& type,
-                           intptr_t class_id,
-                           bool is_immutable = false);
   Fragment LoadLocal(LocalVariable* variable);
   Fragment InitStaticField(const Field& field);
   Fragment LoadStaticField();
@@ -817,13 +490,13 @@ class FlowGraphBuilder : public BaseFlowGraphBuilder {
   Fragment EvaluateAssertion();
   Fragment CheckVariableTypeInCheckedMode(const AbstractType& dst_type,
                                           const String& name_symbol);
-  Fragment CheckBoolean();
+  Fragment CheckBoolean(TokenPosition position);
   Fragment CheckAssignable(
       const AbstractType& dst_type,
       const String& dst_name,
       AssertAssignableInstr::Kind kind = AssertAssignableInstr::kUnknown);
 
-  Fragment AssertBool();
+  Fragment AssertBool(TokenPosition position);
   Fragment AssertAssignable(
       TokenPosition position,
       const AbstractType& dst_type,
@@ -838,9 +511,6 @@ class FlowGraphBuilder : public BaseFlowGraphBuilder {
   bool NeedsDebugStepCheck(Value* value, TokenPosition position);
   Fragment DebugStepCheck(TokenPosition position);
 
-  RawFunction* LookupMethodByMember(NameIndex target,
-                                    const String& method_name);
-
   LocalVariable* LookupVariable(intptr_t kernel_offset);
 
   bool IsInlining() { return exit_collector_ != NULL; }
@@ -852,8 +522,6 @@ class FlowGraphBuilder : public BaseFlowGraphBuilder {
   TranslationHelper translation_helper_;
   Thread* thread_;
   Zone* zone_;
-
-  intptr_t kernel_offset_;
 
   ParsedFunction* parsed_function_;
   const bool optimizing_;
@@ -915,7 +583,6 @@ class FlowGraphBuilder : public BaseFlowGraphBuilder {
   friend class CatchBlock;
   friend class KernelReaderHelper;
   friend class StreamingFlowGraphBuilder;
-  friend class ScopeBuilder;
   friend class SwitchBlock;
   friend class TryCatchBlock;
   friend class TryFinallyBlock;

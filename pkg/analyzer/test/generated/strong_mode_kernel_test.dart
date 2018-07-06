@@ -65,13 +65,6 @@ class StrongModeLocalInferenceTest_Kernel extends StrongModeLocalInferenceTest {
 
   @override
   @failingTest
-  test_constrainedByBounds4() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_constrainedByBounds4();
-  }
-
-  @override
-  @failingTest
   test_constrainedByBounds5() async {
     // Bad state: Expected a type for 4 at 119; got one for kernel offset 118
     await super.test_constrainedByBounds5();
@@ -103,41 +96,6 @@ class StrongModeLocalInferenceTest_Kernel extends StrongModeLocalInferenceTest {
   test_covarianceChecks_superclass() async {
     // NoSuchMethodError: The method 'toList' was called on null.
     await super.test_covarianceChecks_superclass();
-  }
-
-  @override
-  @failingTest
-  test_functionDeclaration_body_propagation() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_functionDeclaration_body_propagation();
-  }
-
-  @override
-  @failingTest
-  test_functionLiteral_assignment_typedArguments() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_functionLiteral_assignment_typedArguments();
-  }
-
-  @override
-  @failingTest
-  test_functionLiteral_assignment_unTypedArguments() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_functionLiteral_assignment_unTypedArguments();
-  }
-
-  @override
-  @failingTest
-  test_functionLiteral_body_propagation() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_functionLiteral_body_propagation();
-  }
-
-  @override
-  @failingTest
-  test_functionLiteral_unTypedArgument_propagation() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_functionLiteral_unTypedArgument_propagation();
   }
 
   @override
@@ -273,13 +231,6 @@ class StrongModeLocalInferenceTest_Kernel extends StrongModeLocalInferenceTest {
 
   @override
   @failingTest
-  test_partialTypes1() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_partialTypes1();
-  }
-
-  @override
-  @failingTest
   test_pinning_multipleConstraints1() async {
     // Expected 1 errors of type StrongModeCode.STRONG_MODE_INVALID_CAST_LITERAL, found 0
     await super.test_pinning_multipleConstraints1();
@@ -290,34 +241,6 @@ class StrongModeLocalInferenceTest_Kernel extends StrongModeLocalInferenceTest {
   test_pinning_multipleConstraints3() async {
     // Expected 1 errors of type StrongModeCode.STRONG_MODE_INVALID_CAST_LITERAL, found 0
     await super.test_pinning_multipleConstraints3();
-  }
-
-  @override
-  @failingTest
-  test_pinning_multipleConstraints_contravariant1() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_pinning_multipleConstraints_contravariant1();
-  }
-
-  @override
-  @failingTest
-  test_pinning_multipleConstraints_contravariant2() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_pinning_multipleConstraints_contravariant2();
-  }
-
-  @override
-  @failingTest
-  test_pinning_multipleConstraints_contravariant3() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_pinning_multipleConstraints_contravariant3();
-  }
-
-  @override
-  @failingTest
-  test_pinning_multipleConstraints_contravariant4() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_pinning_multipleConstraints_contravariant4();
   }
 
   @override
@@ -341,48 +264,6 @@ class StrongModeLocalInferenceTest_Kernel extends StrongModeLocalInferenceTest {
     await super.test_redirectingConstructor_propagation();
     // TODO(brianwilkerson) Figure out why this test is flaky.
     fail('Flaky test');
-  }
-
-  @override
-  @failingTest
-  test_returnType_variance1() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_returnType_variance1();
-  }
-
-  @override
-  @failingTest
-  test_returnType_variance2() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_returnType_variance2();
-  }
-
-  @override
-  @failingTest
-  test_returnType_variance3() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_returnType_variance3();
-  }
-
-  @override
-  @failingTest
-  test_returnType_variance4() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_returnType_variance4();
-  }
-
-  @override
-  @failingTest
-  test_returnType_variance5() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_returnType_variance5();
-  }
-
-  @override
-  @failingTest
-  test_returnType_variance6() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_returnType_variance6();
   }
 }
 
@@ -409,13 +290,6 @@ class StrongModeStaticTypeAnalyzer2Test_Kernel
   test_genericFunction_parameter() async {
     // Failed to resolve 1 nodes:
     await super.test_genericFunction_parameter();
-  }
-
-  @override
-  @failingTest
-  test_genericFunction_typedef() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_genericFunction_typedef();
   }
 
   @override
@@ -508,20 +382,6 @@ class StrongModeStaticTypeAnalyzer2Test_Kernel
 
   @override
   @failingTest
-  test_genericMethod_nestedFunctions() {
-    // Expected: '<S>(S) → <S>(S) → S'; Actual: '<S₀>(S) → <S>(S) → S'
-    return super.test_genericMethod_nestedFunctions();
-  }
-
-  @override
-  @failingTest
-  test_genericMethod_override_differentContextsSameBounds() {
-    // UnimplementedError: TODO(paulberry): TypeParameterType
-    return super.test_genericMethod_override_differentContextsSameBounds();
-  }
-
-  @override
-  @failingTest
   test_genericMethod_override_invalidContravariantTypeParamBounds() async {
     // Expected 1 errors of type StrongModeCode.STRONG_MODE_INVALID_METHOD_OVERRIDE, found 0
     await super
@@ -534,13 +394,6 @@ class StrongModeStaticTypeAnalyzer2Test_Kernel
     // Expected 1 errors of type StrongModeCode.STRONG_MODE_INVALID_METHOD_OVERRIDE, found 0
     await super
         .test_genericMethod_override_invalidContravariantTypeParamBounds();
-  }
-
-  @override
-  @failingTest
-  test_genericMethod_override_invalidReturnType() async {
-    // Expected 1 errors of type StrongModeCode.STRONG_MODE_INVALID_METHOD_OVERRIDE, found 0
-    await super.test_genericMethod_override_invalidReturnType();
   }
 
   @override
@@ -572,10 +425,8 @@ class StrongModeStaticTypeAnalyzer2Test_Kernel
   }
 
   @override
-  @failingTest
-  test_instantiateToBounds_class_error_typedef() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_instantiateToBounds_class_error_typedef();
+  test_notInstantiatedBound_class_error_recursion_less_direct() async {
+    return super.test_notInstantiatedBound_class_error_recursion_less_direct();
   }
 
   @override
@@ -653,20 +504,6 @@ class StrongModeStaticTypeAnalyzer2Test_Kernel
 
   @override
   @failingTest
-  test_notInstantiatedBound_ok_class_function() {
-    // Failed to resolve 1 nodes
-    return super.test_notInstantiatedBound_ok_class_function();
-  }
-
-  @override
-  @failingTest
-  test_objectMethodOnFunctions_Typedef() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super.test_objectMethodOnFunctions_Typedef();
-  }
-
-  @override
-  @failingTest
   test_returnOfInvalidType_object_void() async {
     await super.test_returnOfInvalidType_object_void();
   }
@@ -704,12 +541,4 @@ class StrongModeTypePropagationTest_Kernel
 
   @override
   bool get useCFE => true;
-
-  @override
-  @failingTest
-  test_inconsistentMethodInheritance_inferFunctionTypeFromTypedef() {
-    // UnimplementedError: TODO(paulberry): resynthesize generic typedef
-    return super
-        .test_inconsistentMethodInheritance_inferFunctionTypeFromTypedef();
-  }
 }

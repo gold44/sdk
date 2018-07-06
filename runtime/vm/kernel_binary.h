@@ -7,9 +7,6 @@
 
 #if !defined(DART_PRECOMPILED_RUNTIME)
 
-#include <map>
-
-#include "vm/compiler/frontend/kernel_to_il.h"
 #include "vm/kernel.h"
 #include "vm/object.h"
 
@@ -20,7 +17,7 @@ namespace kernel {
 // package:kernel/binary.md.
 
 static const uint32_t kMagicProgramFile = 0x90ABCDEFu;
-static const uint32_t kBinaryFormatVersion = 7;
+static const uint32_t kBinaryFormatVersion = 8;
 
 // Keep in sync with package:kernel/lib/binary/tag.dart
 #define KERNEL_TAG_LIST(V)                                                     \
@@ -369,6 +366,57 @@ class Reader : public ValueObject {
 
   friend class PositionScope;
   friend class Program;
+};
+
+// A helper class that saves the current reader position, goes to another reader
+// position, and upon destruction, resets to the original reader position.
+class AlternativeReadingScope {
+ public:
+  AlternativeReadingScope(Reader* reader, intptr_t new_position)
+      : reader_(reader),
+        saved_size_(reader_->size()),
+        saved_raw_buffer_(reader_->raw_buffer()),
+        saved_typed_data_(reader_->typed_data()),
+        saved_offset_(reader_->offset()) {
+    reader_->set_offset(new_position);
+  }
+
+  AlternativeReadingScope(Reader* reader,
+                          const ExternalTypedData* new_typed_data,
+                          intptr_t new_position)
+      : reader_(reader),
+        saved_size_(reader_->size()),
+        saved_raw_buffer_(reader_->raw_buffer()),
+        saved_typed_data_(reader_->typed_data()),
+        saved_offset_(reader_->offset()) {
+    reader_->set_raw_buffer(NULL);
+    reader_->set_typed_data(new_typed_data);
+    reader_->set_size(new_typed_data->Length());
+    reader_->set_offset(new_position);
+  }
+
+  explicit AlternativeReadingScope(Reader* reader)
+      : reader_(reader),
+        saved_size_(reader_->size()),
+        saved_raw_buffer_(reader_->raw_buffer()),
+        saved_typed_data_(reader_->typed_data()),
+        saved_offset_(reader_->offset()) {}
+
+  ~AlternativeReadingScope() {
+    reader_->set_raw_buffer(saved_raw_buffer_);
+    reader_->set_typed_data(saved_typed_data_);
+    reader_->set_size(saved_size_);
+    reader_->set_offset(saved_offset_);
+  }
+
+  intptr_t saved_offset() { return saved_offset_; }
+
+ private:
+  Reader* reader_;
+  intptr_t saved_size_;
+  const uint8_t* saved_raw_buffer_;
+  const ExternalTypedData* saved_typed_data_;
+  intptr_t saved_offset_;
 };
 
 // A helper class that resets the readers min and max positions both upon

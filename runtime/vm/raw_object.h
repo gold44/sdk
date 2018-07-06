@@ -867,6 +867,9 @@ class RawFunction : public RawObject {
     kNoSuchMethodDispatcher,  // invokes noSuchMethod.
     kInvokeFieldDispatcher,   // invokes a field as a closure.
     kIrregexpFunction,  // represents a generated irregexp matcher function.
+    kDynamicInvocationForwarder,  // represents forwarder which performs type
+                                  // checks for arguments of a dynamic
+                                  // invocation.
   };
 
   enum AsyncModifier {
@@ -1660,8 +1663,10 @@ class RawICData : public RawObject {
   NOT_IN_PRECOMPILED(int32_t deopt_id_);
   uint32_t state_bits_;  // Number of arguments tested in IC, deopt reasons.
 #if defined(TAG_IC_DATA)
-  intptr_t tag_;  // Debugging, verifying that the icdata is assigned to the
-                  // same instruction again. Store -1 or Instruction::Tag.
+  enum class Tag : intptr_t{kUnknown, kInstanceCall, kStaticCall};
+
+  Tag tag_;  // Debugging, verifying that the icdata is assigned to the
+             // same instruction again.
 #endif
 };
 

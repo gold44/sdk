@@ -33,12 +33,9 @@ conflicting_generic_interfaces_simple_test: MissingCompileTimeError
 conflicting_type_variable_and_setter_test: CompileTimeError
 const_cast2_test/01: CompileTimeError
 const_cast2_test/none: CompileTimeError
+const_constructor_mixin3_test/01: MissingCompileTimeError # Issue 33644
+const_constructor_mixin_test/01: MissingCompileTimeError # Issue 33644
 const_for_in_variable_test/01: MissingCompileTimeError
-const_types_test/07: MissingCompileTimeError
-const_types_test/08: MissingCompileTimeError
-const_types_test/14: MissingCompileTimeError
-const_types_test/15: MissingCompileTimeError
-constant_type_literal_test/01: MissingCompileTimeError # DDC allows type parameter type literals in const expressions.
 constructor_type_parameter_test/00: MissingCompileTimeError
 constructor_with_type_parameters_test/03: MissingCompileTimeError
 covariance_field_test/03: RuntimeError
@@ -102,6 +99,7 @@ issue31596_test: CompileTimeError
 issue32353_test: RuntimeError
 label_test: RuntimeError
 left_shift_test: RuntimeError # Ints and doubles are unified.
+method_override7_test/03: MissingCompileTimeError
 method_override_test: CompileTimeError # Negative test
 mixin_super_2_test/01: MissingCompileTimeError
 mixin_super_2_test/03: MissingCompileTimeError
@@ -155,9 +153,11 @@ regress_29784_test/02: Crash # assert initializers not implemented
 regress_29784_test/02: MissingCompileTimeError
 regress_30121_test: CompileTimeError # Issue 31087
 regress_30339_test: CompileTimeError # As expected. Should we make this a multi test?
-reify_typevar_static_test/00: MissingCompileTimeError # Issue 29920
 setter_override2_test/02: MissingCompileTimeError # Issue 14736
 stacktrace_test: RuntimeError # Issue 29920
+static_setter_conflicts_test/02: MissingCompileTimeError
+static_setter_conflicts_test/11: MissingCompileTimeError
+static_setter_conflicts_test/12: MissingCompileTimeError
 string_split_test: CompileTimeError
 string_supertype_checked_test: CompileTimeError
 super_bound_closure_test/none: CompileTimeError
@@ -284,6 +284,30 @@ void_type_usage_test/paren_literal_map_key_init: MissingCompileTimeError
 void_type_usage_test/paren_literal_map_value_init: MissingCompileTimeError
 void_type_usage_test/paren_return: MissingCompileTimeError
 void_type_usage_test/paren_void_init: MissingCompileTimeError
+web_int_literals_test/01: MissingCompileTimeError
+web_int_literals_test/02: MissingCompileTimeError
+web_int_literals_test/03: MissingCompileTimeError
+web_int_literals_test/10: MissingCompileTimeError
+web_int_literals_test/11: MissingCompileTimeError
+web_int_literals_test/12: MissingCompileTimeError
+web_int_literals_test/13: MissingCompileTimeError
+web_int_literals_test/14: MissingCompileTimeError
+web_int_literals_test/20: MissingCompileTimeError
+web_int_literals_test/21: MissingCompileTimeError
+web_int_literals_test/22: MissingCompileTimeError
+web_int_literals_test/23: MissingCompileTimeError
+web_int_literals_test/24: MissingCompileTimeError
+web_int_literals_test/25: MissingCompileTimeError
+web_int_literals_test/26: MissingCompileTimeError
+web_int_literals_test/27: MissingCompileTimeError
+web_int_literals_test/28: MissingCompileTimeError
+web_int_literals_test/29: MissingCompileTimeError
+web_int_literals_test/61: MissingCompileTimeError
+web_int_literals_test/62: MissingCompileTimeError
+web_int_literals_test/63: MissingCompileTimeError
+web_int_literals_test/64: MissingCompileTimeError
+web_int_literals_test/65: MissingCompileTimeError
+web_int_literals_test/70: MissingCompileTimeError
 
 [ $compiler == dartdevk ]
 additional_interface_adds_optional_args_concrete_subclass_test: MissingCompileTimeError
@@ -294,9 +318,6 @@ async_or_generator_return_type_stacktrace_test/02: MissingCompileTimeError
 async_or_generator_return_type_stacktrace_test/03: MissingCompileTimeError
 async_return_types_test/nestedFuture: MissingCompileTimeError
 async_return_types_test/wrongReturnType: MissingCompileTimeError
-bad_override_test/01: MissingCompileTimeError
-bad_override_test/02: MissingCompileTimeError
-bad_override_test/03: MissingCompileTimeError
 bit_operations_test/03: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
 bit_operations_test/04: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
 bit_operations_test/none: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
@@ -311,7 +332,6 @@ call_method_must_not_be_getter_test/06: RuntimeError # Kernel does not distingui
 call_non_method_field_test/01: MissingCompileTimeError
 call_non_method_field_test/02: MissingCompileTimeError
 check_member_static_test/01: MissingCompileTimeError
-check_member_static_test/02: MissingCompileTimeError
 class_cycle_test/02: MissingCompileTimeError
 class_cycle_test/03: MissingCompileTimeError
 compile_time_constant_c_test/02: MissingCompileTimeError
@@ -345,7 +365,6 @@ const_types_test/39: MissingCompileTimeError
 constants_test/05: MissingCompileTimeError
 constructor_redirect_test/01: MissingCompileTimeError
 covariant_subtyping_test: RuntimeError
-cyclic_constructor_test/01: MissingCompileTimeError
 cyclic_type_variable_test/01: MissingCompileTimeError
 cyclic_type_variable_test/02: MissingCompileTimeError
 cyclic_type_variable_test/03: MissingCompileTimeError
@@ -371,29 +390,20 @@ external_test/24: CompileTimeError
 f_bounded_quantification_test/01: MissingCompileTimeError
 f_bounded_quantification_test/02: MissingCompileTimeError
 factory4_test/00: MissingCompileTimeError
-fauxverride_test/03: MissingCompileTimeError
-fauxverride_test/05: MissingCompileTimeError
 field_initialization_order_test/01: MissingCompileTimeError
-field_override3_test/00: MissingCompileTimeError
-field_override3_test/01: MissingCompileTimeError
-field_override3_test/02: MissingCompileTimeError
-field_override3_test/03: MissingCompileTimeError
 field_override_test/00: MissingCompileTimeError
 field_override_test/01: MissingCompileTimeError
 function_propagation_test: RuntimeError
 function_type_parameter2_negative_test: Fail
 function_type_parameter_negative_test: Fail
 generic_function_bounds_test: RuntimeError
+generic_function_type_as_type_argument_test/01: MissingCompileTimeError # Issue 29920
 generic_methods_generic_function_result_test/01: MissingCompileTimeError
 generic_methods_overriding_test/01: MissingCompileTimeError # Issue 29920
 generic_methods_recursive_bound_test/02: MissingCompileTimeError
 generic_no_such_method_dispatcher_simple_test: CompileTimeError # Warning: Superclass has no method named 'foo'.
 generic_no_such_method_dispatcher_test: CompileTimeError # Issue 31533
 generic_test/01: MissingCompileTimeError # front end does not validate `extends`
-getter_override_test/00: MissingCompileTimeError
-getter_override_test/01: MissingCompileTimeError
-getter_override_test/02: MissingCompileTimeError
-getter_override_test/03: MissingCompileTimeError
 guess_cid_test: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
 identical_closure2_test: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
 identical_const_test/01: MissingCompileTimeError
@@ -441,9 +451,6 @@ malbounded_type_test_test/02: MissingCompileTimeError
 map_literal3_test/01: MissingCompileTimeError
 map_literal3_test/02: MissingCompileTimeError
 map_literal3_test/03: MissingCompileTimeError
-method_override7_test/00: MissingCompileTimeError
-method_override7_test/01: MissingCompileTimeError
-method_override7_test/02: MissingCompileTimeError
 method_override_test: CompileTimeError # Issue 31616
 mint_arithmetic_test: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
 mint_compares_test: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
@@ -521,7 +528,6 @@ mixin_supertype_subclass_test/02: MissingCompileTimeError
 mixin_supertype_subclass_test/05: MissingCompileTimeError
 mixin_type_parameters_errors_test/03: MissingCompileTimeError
 mixin_type_parameters_errors_test/04: MissingCompileTimeError
-mock_writable_final_field_test: RuntimeError # Issue 30847
 mock_writable_final_private_field_test: RuntimeError
 multiline_newline_test/06: MissingCompileTimeError
 multiline_newline_test/06r: MissingCompileTimeError
@@ -530,7 +536,6 @@ named_parameters_default_eq_test/02: MissingCompileTimeError
 no_such_method_mock_test: RuntimeError # Issue 31426 - Kernel does not introduce nSM for implemented fields.
 null_no_such_method_test: CompileTimeError # Issue 31533
 number_identity_test: CompileTimeError, OK # Error if web int literal cannot be represented exactly, see http://dartbug.com/33351
-override_field_test/01: MissingCompileTimeError
 override_field_test/02: MissingCompileTimeError
 override_inheritance_field_test/04: CompileTimeError # Issue 31616
 override_inheritance_field_test/06: CompileTimeError # Issue 31616
@@ -559,10 +564,6 @@ regress_30339_test: RuntimeError # Uncaught Expect.isTrue(false) fails.
 regress_30339_test: CompileTimeError
 setter4_test: MissingCompileTimeError
 setter_no_getter_test/01: CompileTimeError
-setter_override_test/00: MissingCompileTimeError
-setter_override_test/01: MissingCompileTimeError
-setter_override_test/02: MissingCompileTimeError
-setter_override_test/03: MissingCompileTimeError
 string_split_test: CompileTimeError # Issue 31616
 string_supertype_checked_test: CompileTimeError # Issue 31616
 super_bound_closure_test/none: CompileTimeError # Issue 31533
@@ -666,7 +667,6 @@ flatten_test/09: MissingRuntimeError # Issue 29920
 flatten_test/12: MissingRuntimeError # Issue 29920
 for_variable_capture_test: RuntimeError # Issue 29920; Expect.equals(expected: <1>, actual: <0>) fails.
 function_subtype_inline2_test: RuntimeError # Expect.fail('Missing type error: 'new C.c1(m2)'.')
-generic_function_type_as_type_argument_test/01: MissingCompileTimeError # Issue 29920
 generic_function_type_as_type_argument_test/02: MissingCompileTimeError # Issue 29920
 generic_instanceof2_test: RuntimeError # Issue 29920; ReferenceError: FooOfK$String is not defined
 generic_is_check_test: RuntimeError # Issue 29920; Expect.isTrue(false) fails.
@@ -690,7 +690,6 @@ library_env_test/has_no_html_support: RuntimeError, OK # Intended to fail, bool.
 local_function2_test/none: RuntimeError # ReferenceError: TToNull is not defined
 local_function3_test/none: RuntimeError # Expect.equals(expected: <true>, actual: <false>) fails.
 local_function_test/none: RuntimeError # Expect.equals(expected: <true>, actual: <false>) fails.
-method_override7_test/03: MissingCompileTimeError # Issue 30514
 mint_arithmetic_test: RuntimeError # Issue 29920; Expect.equals(expected: <4294967297>, actual: <1>) fails.
 modulo_test: RuntimeError # Ints and doubles are unified.; Expect.throws fails: Did not throw
 multiline_newline_test/04: MissingCompileTimeError

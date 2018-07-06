@@ -1003,7 +1003,7 @@ abstract class A {
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, "p]");
-      expect(ref.staticElement, new isInstanceOf<ParameterElement>());
+      expect(ref.staticElement, new TypeMatcher<ParameterElement>());
     }
   }
 
@@ -1056,7 +1056,7 @@ foo(int p) {
     CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'p]');
-    expect(ref.staticElement, new isInstanceOf<ParameterElement>());
+    expect(ref.staticElement, new TypeMatcher<ParameterElement>());
   }
 
   test_commentReference_beforeFunction_expressionBody() async {
@@ -1070,7 +1070,7 @@ foo(int p) => null;''';
     CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'p]');
-    expect(ref.staticElement, new isInstanceOf<ParameterElement>());
+    expect(ref.staticElement, new TypeMatcher<ParameterElement>());
   }
 
   test_commentReference_beforeFunctionTypeAlias() async {
@@ -1085,7 +1085,7 @@ typedef Foo(int p);
     CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'p]');
-    expect(ref.staticElement, new isInstanceOf<ParameterElement>());
+    expect(ref.staticElement, new TypeMatcher<ParameterElement>());
   }
 
   test_commentReference_beforeGenericTypeAlias() async {
@@ -1105,9 +1105,9 @@ typedef Foo<T> = Function<S>(int p);
           .staticElement;
     }
 
-    expect(getElement('T]'), new isInstanceOf<TypeParameterElement>());
-    expect(getElement('S]'), new isInstanceOf<TypeParameterElement>());
-    expect(getElement('p]'), new isInstanceOf<ParameterElement>());
+    expect(getElement('T]'), new TypeMatcher<TypeParameterElement>());
+    expect(getElement('S]'), new TypeMatcher<TypeParameterElement>());
+    expect(getElement('p]'), new TypeMatcher<ParameterElement>());
   }
 
   test_commentReference_beforeGetter() async {
@@ -1148,7 +1148,7 @@ abstract class A {
     assertIsParameter(String search) {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, search);
-      expect(ref.staticElement, new isInstanceOf<ParameterElement>());
+      expect(ref.staticElement, new TypeMatcher<ParameterElement>());
     }
 
     assertIsParameter('p1');
@@ -1172,7 +1172,7 @@ class A {
     CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'foo]');
-    expect(ref.staticElement, new isInstanceOf<MethodElement>());
+    expect(ref.staticElement, new TypeMatcher<MethodElement>());
   }
 
   test_commentReference_setter() async {
@@ -1195,12 +1195,12 @@ class B extends A {
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, "x] in A");
-      expect(ref.staticElement, new isInstanceOf<PropertyAccessorElement>());
+      expect(ref.staticElement, new TypeMatcher<PropertyAccessorElement>());
     }
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, 'x] in B');
-      expect(ref.staticElement, new isInstanceOf<PropertyAccessorElement>());
+      expect(ref.staticElement, new TypeMatcher<PropertyAccessorElement>());
     }
   }
 
@@ -1314,6 +1314,18 @@ const int value = 12345;
     verify([source]);
   }
 
+  test_constConstructorWithMixinWithField() async {
+    Source source = addSource(r'''
+class M {
+}
+class A extends Object with M {
+  const A();
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
   test_constConstructorWithNonConstSuper_explicit() async {
     Source source = addSource(r'''
 class A {
@@ -1365,19 +1377,6 @@ class A {
 }''');
     await computeAnalysisResult(source);
     assertNoErrors(source);
-    verify([source]);
-  }
-
-  test_constConstructorWithNonFinalField_mixin() async {
-    Source source = addSource(r'''
-class A {
-  a() {}
-}
-class B extends Object with A {
-  const B();
-}''');
-    await computeAnalysisResult(source);
-    assertErrors(source, [CompileTimeErrorCode.CONST_CONSTRUCTOR_WITH_MIXIN]);
     verify([source]);
   }
 
@@ -2905,6 +2904,12 @@ class A {
     Source source = addSource('int x = -000923372036854775809;');
     await computeAnalysisResult(source);
     assertNoErrors(source);
+  }
+
+  test_integerLiteralOutOfRange_negative_small() async {
+    Source source = addSource('int x = -42;');
+    await computeAnalysisResult(source);
+    assertErrors(source);
   }
 
   test_integerLiteralOutOfRange_negative_valid() async {
@@ -5386,7 +5391,7 @@ class B {
   }
 
   test_typeArgument_boundToFunctionType() async {
-    Source source = addSource("class A<T extends void Function<T>(T)>{}");
+    Source source = addSource("class A<T extends void Function(T)>{}");
     await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
@@ -6373,6 +6378,32 @@ f() async* {
 f() sync* {
   yield 0;
 }''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  Future test_issue32114() async {
+    addNamedSource('/a.dart', '''
+class O {}
+
+typedef T Func<T extends O>(T e);
+''');
+    addNamedSource('/b.dart', '''
+import 'a.dart';
+export 'a.dart' show Func;
+
+abstract class A<T extends O> {
+  Func<T> get func;
+}
+''');
+    final Source source = addSource('''
+import 'b.dart';
+
+class B extends A {
+  Func get func => (x) => x;
+}
+''');
     await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);

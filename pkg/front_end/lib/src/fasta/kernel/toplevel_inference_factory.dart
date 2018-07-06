@@ -155,6 +155,9 @@ class ToplevelInferenceFactory implements Factory<void, void, void, void> {
       double value, DartType inferredType) {}
 
   @override
+  void emptyStatement(Token semicolon) {}
+
+  @override
   void expressionStatement(StatementJudgment judgment, int fileOffset,
       void expression, Token semicolon) {}
 
@@ -186,7 +189,7 @@ class ToplevelInferenceFactory implements Factory<void, void, void, void> {
       DartType loopVariableType,
       int writeOffset,
       DartType writeVariableType,
-      int writeVariableDeclarationOffset,
+      covariant void writeVariableBinder,
       Node writeTarget) {}
 
   @override
@@ -482,7 +485,7 @@ class ToplevelInferenceFactory implements Factory<void, void, void, void> {
       ExpressionJudgment judgment,
       int fileOffset,
       DartType writeContext,
-      int writeVariableDeclarationOffset,
+      covariant void writeVariableBinder,
       Node combiner,
       DartType inferredType) {}
 
@@ -496,10 +499,6 @@ class ToplevelInferenceFactory implements Factory<void, void, void, void> {
   @override
   void variableGet(ExpressionJudgment judgment, int fileOffset,
       bool isInCascade, covariant void variableBinder, DartType inferredType) {}
-
-  @override
-  void variableSet(ExpressionJudgment judgment, int fileOffset,
-      covariant void variableBinder, DartType inferredType) {}
 
   @override
   void whileStatement(

@@ -27,8 +27,7 @@ import '../kernel/kernel_shadow_ast.dart'
 /// The default implementation (in this base class) does nothing, however it can
 /// be used to debug type inference by uncommenting the
 /// "with TypeInferenceDebugging" clause below.
-abstract class TypeInferenceListener<Location, Declaration, Reference,
-    PrefixInfo> {
+abstract class TypeInferenceListener<Location, Reference, PrefixInfo> {
   void asExpression(
       ExpressionJudgment judgment,
       Location location,
@@ -142,6 +141,8 @@ abstract class TypeInferenceListener<Location, Declaration, Reference,
   void doubleLiteral(ExpressionJudgment judgment, Location location,
       Token literal, double value, DartType inferredType);
 
+  void emptyStatement(Token semicolon);
+
   void expressionStatement(StatementJudgment judgment, Location location,
       void expression, Token semicolon);
 
@@ -171,7 +172,7 @@ abstract class TypeInferenceListener<Location, Declaration, Reference,
       DartType loopVariableType,
       Location writeLocation,
       DartType writeVariableType,
-      Declaration writeVariable,
+      covariant Object writeVariableBinder,
       Reference writeTarget);
 
   void forStatement(
@@ -420,7 +421,7 @@ abstract class TypeInferenceListener<Location, Declaration, Reference,
       ExpressionJudgment judgment,
       Location location,
       DartType writeContext,
-      Declaration writeVariable,
+      covariant Object writeVariableBinder,
       Reference combiner,
       DartType inferredType);
 
@@ -432,9 +433,6 @@ abstract class TypeInferenceListener<Location, Declaration, Reference,
 
   void variableGet(ExpressionJudgment judgment, Location location,
       bool isInCascade, covariant Object variableBinder, DartType inferredType);
-
-  void variableSet(ExpressionJudgment judgment, Location location,
-      covariant Object variableBinder, DartType inferredType);
 
   void whileStatement(
       StatementJudgment judgment,
@@ -458,7 +456,7 @@ abstract class TypeInferenceListener<Location, Declaration, Reference,
 ///
 /// TODO(paulberry): fuse this with KernelFactory.
 class KernelTypeInferenceListener
-    implements TypeInferenceListener<int, int, Node, int> {
+    implements TypeInferenceListener<int, Node, int> {
   @override
   void asExpression(ExpressionJudgment judgment, location, void expression,
       Token asOperator, void literalType, DartType inferredType) {}
@@ -579,6 +577,9 @@ class KernelTypeInferenceListener
       double value, DartType inferredType) {}
 
   @override
+  void emptyStatement(Token semicolon) {}
+
+  @override
   void expressionStatement(
       StatementJudgment judgment, location, void expression, Token semicolon) {}
 
@@ -610,7 +611,7 @@ class KernelTypeInferenceListener
       DartType loopVariableType,
       writeLocation,
       DartType writeVariableType,
-      writeVariable,
+      covariant void writeVariableBinder,
       writeTarget) {}
 
   @override
@@ -886,8 +887,13 @@ class KernelTypeInferenceListener
       DartType inferredType) {}
 
   @override
-  void variableAssign(ExpressionJudgment judgment, location,
-      DartType writeContext, writeVariable, combiner, DartType inferredType) {}
+  void variableAssign(
+      ExpressionJudgment judgment,
+      location,
+      DartType writeContext,
+      covariant void writeVariableBinder,
+      combiner,
+      DartType inferredType) {}
 
   @override
   void variableDeclaration(
@@ -900,10 +906,6 @@ class KernelTypeInferenceListener
   @override
   void variableGet(ExpressionJudgment judgment, location, bool isInCascade,
       expressionVariable, DartType inferredType) {}
-
-  @override
-  void variableSet(ExpressionJudgment judgment, location,
-      covariant void variableBinder, DartType inferredType) {}
 
   @override
   void whileStatement(

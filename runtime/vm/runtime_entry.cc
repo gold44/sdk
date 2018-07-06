@@ -181,7 +181,7 @@ DEFINE_RUNTIME_ENTRY(NullError, 0) {
   const uword pc_offset = caller_frame->pc() - code.PayloadStart();
 
   if (FLAG_shared_slow_path_triggers_gc) {
-    Isolate::Current()->heap()->CollectAllGarbage();
+    isolate->heap()->CollectAllGarbage();
   }
 
   const CodeSourceMap& map =
@@ -1024,6 +1024,16 @@ RawFunction* InlineCacheMissHelper(const Instance& receiver,
                                    const String& target_name) {
   const Class& receiver_class = Class::Handle(receiver.clazz());
 
+#if !defined(DART_PRECOMPILED_RUNTIME)
+  // Handle noSuchMethod for dyn:methodName by getting a noSuchMethod dispatcher
+  // (or a call-through getter for methodName).
+  if (Function::IsDynamicInvocationForwaderName(target_name)) {
+    const String& demangled = String::Handle(
+        Function::DemangleDynamicInvocationForwarderName(target_name));
+    return InlineCacheMissHelper(receiver, args_descriptor, demangled);
+  }
+#endif
+
   Function& result = Function::Handle();
   if (!ResolveCallThroughGetter(receiver, receiver_class, target_name,
                                 args_descriptor, &result)) {
@@ -1772,6 +1782,7 @@ DEFINE_RUNTIME_ENTRY(InterpretCall, 4) {
     }
     Exceptions::PropagateError(Error::Cast(result));
   }
+  arguments.SetReturn(result);
 #else
   UNREACHABLE();
 #endif  // defined(DART_USE_INTERPRETER)
@@ -1964,6 +1975,10 @@ DEFINE_RUNTIME_ENTRY(StackOverflow, 0) {
   // particular stack overflow runtime call and are not meant to
   // persist.
   uword stack_overflow_flags = thread->GetAndClearStackOverflowFlags();
+
+  if (FLAG_shared_slow_path_triggers_gc) {
+    isolate->heap()->CollectAllGarbage();
+  }
 
   bool interpreter_stack_overflow = false;
 #if defined(DART_USE_INTERPRETER)

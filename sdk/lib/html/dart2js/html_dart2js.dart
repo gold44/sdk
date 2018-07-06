@@ -8,6 +8,8 @@
  * check out the [Element] class, the base class for many of the HTML
  * DOM types.
  *
+ * For information on writing web apps with Dart, see https://webdev.dartlang.org.
+ *
  * {@category Web}
  */
 library dart.dom.html;
@@ -9929,7 +9931,7 @@ class DocumentFragment extends Node
    * last child of this document fragment.
    */
   void appendHtml(String text,
-      {NodeValidator validator, NodeTreeSanitizer, treeSanitizer}) {
+      {NodeValidator validator, NodeTreeSanitizer treeSanitizer}) {
     this.append(new DocumentFragment.html(text,
         validator: validator, treeSanitizer: treeSanitizer));
   }
@@ -11641,7 +11643,10 @@ class _FrozenElementList<E extends Element> extends ListBase<E>
     implements ElementList<E>, NodeListWrapper {
   final List<Node> _nodeList;
 
-  _FrozenElementList._wrap(this._nodeList);
+  _FrozenElementList._wrap(this._nodeList) {
+    assert(this._nodeList.every((element) => element is E),
+        "Query expects only HTML elements of type $E but found ${this._nodeList.firstWhere((e) => e is! E)}");
+  }
 
   int get length => _nodeList.length;
 
@@ -13958,8 +13963,6 @@ class Element extends Node
   @JSName('removeAttributeNS')
   void _removeAttributeNS(String namespaceURI, String localName) native;
 
-  void requestFullscreen() native;
-
   void requestPointerLock() native;
 
   void scroll([options_OR_x, num y]) {
@@ -14051,6 +14054,21 @@ class Element extends Node
       String nativeScrollBehavior) native;
 
   void setPointerCapture(int pointerId) native;
+
+  @JSName('webkitRequestFullscreen')
+  /**
+   * Displays this element fullscreen.
+   *
+   * ## Other resources
+   *
+   * * [Using the fullscreen
+   *   API](http://docs.webplatform.org/wiki/tutorials/using_the_full-screen_api)
+   *   tutorial from WebPlatform.org.
+   * * [Fullscreen specification](http://www.w3.org/TR/fullscreen/) from W3C.
+   */
+  @SupportedBrowser(SupportedBrowser.CHROME)
+  @SupportedBrowser(SupportedBrowser.SAFARI)
+  void requestFullscreen() native;
 
   // From ChildNode
 
@@ -25459,6 +25477,23 @@ class RtcPeerConnection extends EventTarget {
     return completer.future;
   }
 
+  /**
+  * Temporarily exposes _getStats and old getStats as getLegacyStats until Chrome fully supports
+  * new getStats API.
+  */
+  @JSName('getStats')
+  Future<RtcStatsResponse> getLegacyStats([MediaStreamTrack selector]) {
+    var completer = new Completer<RtcStatsResponse>();
+    _getStats((value) {
+      completer.complete(value);
+    }, selector);
+    return completer.future;
+  }
+
+  @JSName('getStats')
+  Future _getStats(
+      [RtcStatsCallback successCallback, MediaStreamTrack selector]) native;
+
   static Future generateCertificate(/*AlgorithmIdentifier*/ keygenAlgorithm) =>
       JS('dynamic', 'generateCertificate(#)', keygenAlgorithm);
 
@@ -25674,7 +25709,8 @@ class RtcPeerConnection extends EventTarget {
 
   List<RtcRtpSender> getSenders() native;
 
-  Future getStats() => promiseToFuture<dynamic>(JS("", "#.getStats()", this));
+  Future<RtcStatsReport> getStats() =>
+      promiseToFuture<RtcStatsReport>(JS("", "#.getStats()", this));
 
   void removeStream(MediaStream stream) native;
 
@@ -27346,8 +27382,6 @@ class SpeechRecognitionResult extends Interceptor {
 
 @Native("SpeechSynthesis")
 class SpeechSynthesis extends EventTarget {
-  @DomName('SpeechSynthesis.getVoices')
-  @DocsEditable()
   List<SpeechSynthesisVoice> getVoices() {
     List<SpeechSynthesisVoice> voices = _getVoices();
     if (voices.length > 0) applyExtension('SpeechSynthesisVoice', voices[0]);
@@ -30655,11 +30689,12 @@ class Window extends EventTarget
   Console get console => Console._safeConsole;
 
   /**
-   * Access a sandboxed file system of the specified `size`. If `persistent` is
-   * true, the application will request permission from the user to create
-   * lasting storage. This storage cannot be freed without the user's
-   * permission. Returns a [Future] whose value stores a reference to the
-   * sandboxed file system for use. Because the file system is sandboxed,
+   * Access a sandboxed file system of `size` bytes.
+   *
+   * If `persistent` is true, the application will request permission from the
+   * user to create lasting storage. This storage cannot be freed without the
+   * user's permission. Returns a [Future] whose value stores a reference to
+   * the sandboxed file system for use. Because the file system is sandboxed,
    * applications cannot access file systems created in other web pages.
    */
   Future<FileSystem> requestFileSystem(int size, {bool persistent: false}) {
@@ -38607,7 +38642,11 @@ class _JSElementUpgrader implements ElementUpgrader {
   Element upgrade(Element element) {
     // Only exact type matches are supported- cannot be a subclass.
     if (element.runtimeType != _nativeType) {
-      throw new ArgumentError('element is not subclass of $_nativeType');
+      // Some browsers may represent non-upgraded elements <x-foo> as
+      // UnknownElement and not a plain HtmlElement.
+      if (_nativeType != HtmlElement || element.runtimeType != UnknownElement) {
+        throw new ArgumentError('element is not subclass of $_nativeType');
+      }
     }
 
     setNativeSubclassDispatchRecord(element, _interceptor);

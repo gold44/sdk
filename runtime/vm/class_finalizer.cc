@@ -1172,7 +1172,9 @@ RawAbstractType* ClassFinalizer::FinalizeType(const Class& cls,
     // malformed.
     if ((finalization >= kCanonicalize) && !type.IsMalformed() &&
         !type.IsCanonical() && type.IsType()) {
-      CheckTypeBounds(cls, type);
+      if (!Isolate::Current()->strong()) {
+        CheckTypeBounds(cls, type);
+      }
       return type.Canonicalize();
     }
     return type.raw();
@@ -1314,7 +1316,7 @@ RawAbstractType* ClassFinalizer::FinalizeType(const Class& cls,
 
   // If we are done finalizing a graph of mutually recursive types, check their
   // bounds.
-  if (is_root_type) {
+  if (is_root_type && !Isolate::Current()->strong()) {
     for (intptr_t i = pending_types->length() - 1; i >= 0; i--) {
       const AbstractType& type = pending_types->At(i);
       if (!type.IsMalformed() && !type.IsCanonical()) {
@@ -1555,7 +1557,7 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
   AbstractType& type = AbstractType::Handle(zone);
   String& name = String::Handle(zone);
   String& getter_name = String::Handle(zone);
-  String& setter_name = String::Handle(zone);
+  String& other_name = String::Handle(zone);
   Class& super_class = Class::Handle(zone);
   const intptr_t num_fields = array.Length();
   for (intptr_t i = 0; i < num_fields; i++) {
@@ -1579,8 +1581,8 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
       // An implicit setter is not generated for a static field, therefore, we
       // cannot rely on the code below handling the static setter case to report
       // a conflict with an instance setter. So we check explicitly here.
-      setter_name = Field::SetterSymbol(name);
-      super_class = FindSuperOwnerOfFunction(cls, setter_name);
+      other_name = Field::SetterSymbol(name);
+      super_class = FindSuperOwnerOfFunction(cls, other_name);
       if (!super_class.IsNull()) {
         const String& class_name = String::Handle(zone, cls.Name());
         const String& super_cls_name = String::Handle(zone, super_class.Name());
@@ -1707,6 +1709,19 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
                        interface_name.ToCString());
         }
       }
+    }
+    if (function.IsImplicitGetterFunction() ||
+        function.IsImplicitSetterFunction() ||
+        function.IsImplicitStaticFieldInitializer()) {
+      // Cache the field object in the function data_ field.
+      if (function.IsImplicitSetterFunction()) {
+        other_name = Field::NameFromSetter(name);
+      } else {
+        other_name = Field::NameFromGetter(name);
+      }
+      field = cls.LookupFieldAllowPrivate(other_name);
+      ASSERT(!field.IsNull());
+      function.set_accessor_field(field);
     }
     if (function.IsSetterFunction() || function.IsImplicitSetterFunction()) {
       if (function.is_static()) {

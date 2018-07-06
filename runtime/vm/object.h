@@ -1442,6 +1442,10 @@ class Class : public Object {
   void CheckReload(const Class& replacement,
                    IsolateReloadContext* context) const;
 
+  void AddInvocationDispatcher(const String& target_name,
+                               const Array& args_desc,
+                               const Function& dispatcher) const;
+
  private:
   bool CanReloadFinalized(const Class& replacement,
                           IsolateReloadContext* context) const;
@@ -2000,8 +2004,9 @@ class ICData : public Object {
   enum { kCachedICDataArrayCount = 4 };
 
 #if defined(TAG_IC_DATA)
-  void set_tag(intptr_t value) const;
-  intptr_t tag() const { return raw_ptr()->tag_; }
+  using Tag = RawICData::Tag;
+  void set_tag(Tag value) const;
+  Tag tag() const { return raw_ptr()->tag_; }
 #endif
 
   bool is_static_call() const;
@@ -2279,16 +2284,20 @@ class Function : public Object {
   RawContextScope* context_scope() const;
   void set_context_scope(const ContextScope& value) const;
 
-  RawField* LookupImplicitGetterSetterField() const;
-
   // Enclosing function of this local function.
   RawFunction* parent_function() const;
+
+  // Enclosing outermost function of this local function.
+  RawFunction* GetOutermostFunction() const;
 
   void set_extracted_method_closure(const Function& function) const;
   RawFunction* extracted_method_closure() const;
 
   void set_saved_args_desc(const Array& array) const;
   RawArray* saved_args_desc() const;
+
+  void set_accessor_field(const Field& value) const;
+  RawField* accessor_field() const;
 
   bool IsMethodExtractor() const {
     return kind() == RawFunction::kMethodExtractor;
@@ -2300,6 +2309,10 @@ class Function : public Object {
 
   bool IsInvokeFieldDispatcher() const {
     return kind() == RawFunction::kInvokeFieldDispatcher;
+  }
+
+  bool IsDynamicInvocationForwader() const {
+    return kind() == RawFunction::kDynamicInvocationForwarder;
   }
 
   bool IsImplicitGetterOrSetter() const {
@@ -2340,6 +2353,9 @@ class Function : public Object {
   RawFunction::Kind kind() const {
     return KindBits::decode(raw_ptr()->kind_tag_);
   }
+  static RawFunction::Kind kind(RawFunction* function) {
+    return KindBits::decode(function->ptr()->kind_tag_);
+  }
 
   RawFunction::AsyncModifier modifier() const {
     return ModifierBits::decode(raw_ptr()->kind_tag_);
@@ -2367,6 +2383,7 @@ class Function : public Object {
       case RawFunction::kMethodExtractor:
       case RawFunction::kNoSuchMethodDispatcher:
       case RawFunction::kInvokeFieldDispatcher:
+      case RawFunction::kDynamicInvocationForwarder:
         return true;
       case RawFunction::kClosureFunction:
       case RawFunction::kImplicitClosureFunction:
@@ -2400,6 +2417,7 @@ class Function : public Object {
       case RawFunction::kMethodExtractor:
       case RawFunction::kNoSuchMethodDispatcher:
       case RawFunction::kInvokeFieldDispatcher:
+      case RawFunction::kDynamicInvocationForwarder:
         return false;
       default:
         UNREACHABLE();
@@ -2609,6 +2627,7 @@ class Function : public Object {
       case RawFunction::kImplicitSetter:
       case RawFunction::kNoSuchMethodDispatcher:
       case RawFunction::kInvokeFieldDispatcher:
+      case RawFunction::kDynamicInvocationForwarder:
         return true;
       default:
         return false;
@@ -2633,6 +2652,12 @@ class Function : public Object {
   // Returns true if this function represents an implicit setter function.
   bool IsImplicitSetterFunction() const {
     return kind() == RawFunction::kImplicitSetter;
+  }
+
+  // Returns true if this function represents an implicit static field
+  // initializer function.
+  bool IsImplicitStaticFieldInitializer() const {
+    return kind() == RawFunction::kImplicitStaticFinalGetter;
   }
 
   // Returns true if this function represents a (possibly implicit) closure
@@ -2769,6 +2794,17 @@ class Function : public Object {
 
   RawFunction* CreateMethodExtractor(const String& getter_name) const;
   RawFunction* GetMethodExtractor(const String& getter_name) const;
+
+#if !defined(DART_PRECOMPILED_RUNTIME)
+  static bool IsDynamicInvocationForwaderName(const String& name);
+  static RawString* DemangleDynamicInvocationForwarderName(const String& name);
+  static RawString* CreateDynamicInvocationForwarderName(const String& name);
+
+  RawFunction* CreateDynamicInvocationForwarder(
+      const String& mangled_name) const;
+  RawFunction* GetDynamicInvocationForwarder(const String& mangled_name,
+                                             bool allow_add = true) const;
+#endif
 
   // Allocate new function object, clone values from this function. The
   // owner of the clone is new_owner.
@@ -3578,6 +3614,8 @@ class Script : public Object {
     return raw_ptr()->tokens_;
   }
 
+  RawTypedData* line_starts() const;
+
   void set_line_starts(const TypedData& value) const;
 
   void set_debug_positions(const Array& value) const;
@@ -3635,7 +3673,6 @@ class Script : public Object {
   void set_kind(RawScript::Kind value) const;
   void set_load_timestamp(int64_t value) const;
   void set_tokens(const TokenStream& value) const;
-  RawTypedData* line_starts() const;
   RawArray* debug_positions() const;
 
   static RawScript* New();
@@ -3785,7 +3822,7 @@ class Library : public Object {
   RawFunction* LookupFunctionAllowPrivate(const String& name) const;
   RawFunction* LookupLocalFunction(const String& name) const;
   RawLibraryPrefix* LookupLocalLibraryPrefix(const String& name) const;
-  RawScript* LookupScript(const String& url) const;
+  RawScript* LookupScript(const String& url, bool useResolvedUri = false) const;
   RawArray* LoadedScripts() const;
 
   // Resolve name in the scope of this library. First check the cache

@@ -91,10 +91,6 @@ class CommandLineOptions {
   /// Whether to display version information
   final bool displayVersion;
 
-  /// Whether to treat type mismatches found during constant evaluation as
-  /// errors.
-  final bool enableTypeChecks;
-
   /// Whether to ignore unrecognized flags
   final bool ignoreUnrecognizedFlags;
 
@@ -142,7 +138,9 @@ class CommandLineOptions {
   final bool infosAreFatal;
 
   /// Whether to use strong static checking.
-  final bool strongMode;
+  ///
+  /// This flag is deprecated and hard-coded to `true`.
+  final bool strongMode = true;
 
   /// Whether implicit casts are enabled (in strong mode)
   final bool implicitCasts;
@@ -183,7 +181,6 @@ class CommandLineOptions {
         disableCacheFlushing = args['disable-cache-flushing'],
         disableHints = args['no-hints'],
         displayVersion = args['version'],
-        enableTypeChecks = args['enable_type_checks'],
         ignoreUnrecognizedFlags = args['ignore-unrecognized-flags'],
         lints = args[lintsFlag],
         log = args['log'],
@@ -202,7 +199,6 @@ class CommandLineOptions {
         infosAreFatal = args['fatal-infos'] || args['fatal-hints'],
         warningsAreFatal = args['fatal-warnings'],
         lintsAreFatal = args['fatal-lints'],
-        strongMode = args['strong'],
         implicitCasts = args[implicitCastsFlag],
         implicitDynamic = !args['no-implicit-dynamic'],
         verbose = args['verbose'],
@@ -363,10 +359,9 @@ class CommandLineOptions {
           help: 'Verbose output.',
           negatable: false);
 
-    if (telemetry.SHOW_ANALYTICS_UI) {
-      parser.addFlag('analytics',
-          help: 'Enable or disable sending analytics information to Google.');
-    }
+    parser.addFlag('analytics',
+        help: 'Enable or disable sending analytics information to Google.',
+        hide: !telemetry.SHOW_ANALYTICS_UI);
 
     // Build mode options.
     if (!hide) {
@@ -471,10 +466,10 @@ class CommandLineOptions {
           negatable: false,
           hide: hide)
       ..addFlag('enable_type_checks',
-          help: 'Check types in constant evaluation.',
+          help: 'Check types in constant evaluation (deprecated).',
           defaultsTo: false,
           negatable: false,
-          hide: hide)
+          hide: true)
       // TODO(brianwilkerson) Remove the following option after we're sure that
       // it's no longer being used.
       ..addFlag('enable-assert-initializers',
@@ -590,6 +585,13 @@ class CommandLineOptions {
           return null; // Only reachable in testing.
         }
       }
+
+      if (results.wasParsed(strongModeFlag)) {
+        errorSink.writeln(
+            'Note: the --strong flag is deprecated and will be removed in an '
+            'future release.\n');
+      }
+
       return new CommandLineOptions._fromArgs(results);
     } on FormatException catch (e) {
       errorSink.writeln(e.message);

@@ -430,6 +430,53 @@ abstract class KernelClassBuilder
     transformProcedureToNoSuchMethodForwarder(noSuchMethod, target, cloned);
     cls.procedures.add(cloned);
     cloned.parent = cls;
+
+    KernelLibraryBuilder library = this.library;
+    library.noSuchMethodForwardersOrigins.add(cloned);
+    library.noSuchMethodForwardersOrigins.add(procedure);
+  }
+
+  void addNoSuchMethodForwarderGetterForField(Member noSuchMethod,
+      KernelTarget target, Field field, ClassHierarchy hierarchy) {
+    Substitution substitution = Substitution.fromSupertype(
+        hierarchy.getClassAsInstanceOf(cls, field.enclosingClass));
+    Procedure getter = new Procedure(
+        field.name,
+        ProcedureKind.Getter,
+        new FunctionNode(null,
+            typeParameters: <TypeParameter>[],
+            positionalParameters: <VariableDeclaration>[],
+            namedParameters: <VariableDeclaration>[],
+            requiredParameterCount: 0,
+            returnType: substitution.substituteType(field.type)),
+        fileUri: field.fileUri)
+      ..fileOffset = field.fileOffset;
+    transformProcedureToNoSuchMethodForwarder(noSuchMethod, target, getter);
+    cls.procedures.add(getter);
+    getter.parent = cls;
+  }
+
+  void addNoSuchMethodForwarderSetterForField(Member noSuchMethod,
+      KernelTarget target, Field field, ClassHierarchy hierarchy) {
+    Substitution substitution = Substitution.fromSupertype(
+        hierarchy.getClassAsInstanceOf(cls, field.enclosingClass));
+    Procedure setter = new Procedure(
+        field.name,
+        ProcedureKind.Setter,
+        new FunctionNode(null,
+            typeParameters: <TypeParameter>[],
+            positionalParameters: <VariableDeclaration>[
+              new VariableDeclaration("value",
+                  type: substitution.substituteType(field.type))
+            ],
+            namedParameters: <VariableDeclaration>[],
+            requiredParameterCount: 1,
+            returnType: const VoidType()),
+        fileUri: field.fileUri)
+      ..fileOffset = field.fileOffset;
+    transformProcedureToNoSuchMethodForwarder(noSuchMethod, target, setter);
+    cls.procedures.add(setter);
+    setter.parent = cls;
   }
 
   /// Adds noSuchMethod forwarding stubs to this class. Returns `true` if the
@@ -492,6 +539,14 @@ abstract class KernelClassBuilder
         existingForwardersNames.add(member.name);
         changed = true;
       }
+      if (member is Field &&
+          ClassHierarchy.findMemberByName(concrete, member.name) == null &&
+          !existingForwardersNames.contains(member.name)) {
+        addNoSuchMethodForwarderGetterForField(
+            noSuchMethod, target, member, hierarchy);
+        existingForwardersNames.add(member.name);
+        changed = true;
+      }
     }
 
     List<Member> concreteSetters =
@@ -511,6 +566,15 @@ abstract class KernelClassBuilder
           addNoSuchMethodForwarderForProcedure(
               noSuchMethod, target, member, hierarchy);
         }
+        existingSetterForwardersNames.add(member.name);
+        changed = true;
+      }
+      if (member is Field &&
+          ClassHierarchy.findMemberByName(concreteSetters, member.name) ==
+              null &&
+          !existingSetterForwardersNames.contains(member.name)) {
+        addNoSuchMethodForwarderSetterForField(
+            noSuchMethod, target, member, hierarchy);
         existingSetterForwardersNames.add(member.name);
         changed = true;
       }

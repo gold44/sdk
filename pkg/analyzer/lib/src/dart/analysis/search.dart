@@ -387,7 +387,7 @@ class Search {
         if (index != null) {
           for (AnalysisDriverSubtype subtype in index.subtypes) {
             if (subtype.supertypes.contains(id)) {
-              FileState library = file.isPart ? file.library : file;
+              FileState library = file.library ?? file;
               results.add(new SubtypeResult(
                   library.uriStr,
                   library.uriStr + ';' + file.uriStr + ';' + subtype.name,
@@ -767,16 +767,19 @@ class Search {
  * Container that keeps track of file owners.
  */
 class SearchedFiles {
-  final Map<Uri, Search> owners = {};
+  final Map<String, Search> pathOwners = {};
+  final Map<Uri, Search> uriOwners = {};
 
   bool add(String path, Search search) {
     var file = search._driver.fsState.getFileForPath(path);
-    var owner = owners[file.uri];
-    if (owner == null) {
-      owners[file.uri] = search;
+    var pathOwner = pathOwners[path];
+    var uriOwner = uriOwners[file.uri];
+    if (pathOwner == null && uriOwner == null) {
+      pathOwners[path] = search;
+      uriOwners[file.uri] = search;
       return true;
     }
-    return identical(owner, search);
+    return identical(pathOwner, search) && identical(uriOwner, search);
   }
 
   void ownAdded(Search search) {

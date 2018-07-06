@@ -4,9 +4,8 @@
 
 library fasta.stack_listener;
 
-import 'package:kernel/ast.dart' show AsyncMarker, Expression, FunctionNode;
-
-import '../deprecated_problems.dart' show deprecated_inputError;
+import 'package:kernel/ast.dart'
+    show AsyncMarker, Expression, FunctionNode, TreeNode;
 
 import '../fasta_codes.dart'
     show
@@ -14,7 +13,8 @@ import '../fasta_codes.dart'
         messageNativeClauseShouldBeAnnotation,
         templateInternalProblemStackNotEmpty;
 
-import '../parser.dart' show Listener, MemberKind, Parser;
+import '../parser.dart'
+    show Listener, MemberKind, Parser, lengthOfSpan, offsetForToken;
 
 import '../parser/identifier_context.dart' show IdentifierContext;
 
@@ -88,7 +88,7 @@ abstract class StackListener extends Listener {
 
   // TODO(ahe): This doesn't belong here. Only implemented by body_builder.dart
   // and ast_builder.dart.
-  List<Expression> finishMetadata() {
+  List<Expression> finishMetadata(TreeNode parent) {
     return unsupported("finishMetadata", -1, uri);
   }
 
@@ -173,11 +173,6 @@ abstract class StackListener extends Listener {
               "${runtimeType}", stack.values.join("\n  ")),
           charOffset,
           uri);
-    }
-    if (recoverableErrors.isNotEmpty) {
-      // TODO(ahe): Handle recoverable errors better.
-      deprecated_inputError(
-          uri, recoverableErrors.first.beginOffset, recoverableErrors);
     }
   }
 
@@ -342,18 +337,13 @@ abstract class StackListener extends Listener {
   @override
   void handleRecoverableError(
       Message message, Token startToken, Token endToken) {
-    /// TODO(danrubel): Ignore this error until we deprecate `native` support.
     if (message == messageNativeClauseShouldBeAnnotation) {
+      // TODO(danrubel): Ignore this error until we deprecate `native` support.
       return;
     }
     debugEvent("Error: ${message.message}");
-    int offset = startToken.offset;
-    addCompileTimeError(message, offset, endToken.end - offset);
-  }
-
-  @override
-  Token handleUnrecoverableError(Token token, Message message) {
-    throw deprecated_inputError(uri, token.charOffset, message.message);
+    addCompileTimeError(message, offsetForToken(startToken),
+        lengthOfSpan(startToken, endToken));
   }
 
   @override

@@ -484,14 +484,19 @@ class CompileTimeErrorCode extends ErrorCode {
    * specify a constant constructor of the superclass of the immediately
    * enclosing class or a compile-time error occurs.
    *
-   * 9 Mixins: For each generative constructor named ... an implicitly declared
-   * constructor named ... is declared.
+   * 12.1 Mixin Application: For each generative constructor named ... an
+   * implicitly declared constructor named ... is declared. If Sq is a
+   * generative const constructor, and M does not declare any fields, Cq is
+   * also a const constructor.
    */
-  static const CompileTimeErrorCode CONST_CONSTRUCTOR_WITH_MIXIN =
-      const CompileTimeErrorCode('CONST_CONSTRUCTOR_WITH_MIXIN',
-          "Const constructor can't be declared for a class with a mixin.",
-          correction: "Try removing the 'const' keyword, or "
-              "removing the 'with' clause from the class declaration.");
+  static const CompileTimeErrorCode CONST_CONSTRUCTOR_WITH_MIXIN_WITH_FIELD =
+      const CompileTimeErrorCode(
+          'CONST_CONSTRUCTOR_WITH_MIXIN_WITH_FIELD',
+          "Const constructor can't be declared for a class with a mixin "
+          "that declares a field.",
+          correction: "Try removing the 'const' keyword or "
+              "removing the 'with' clause from the class declaration, "
+              "or removing fields from the mixin class.");
 
   /**
    * 7.6.3 Constant Constructors: The superinitializer that appears, explicitly
@@ -1221,6 +1226,9 @@ class CompileTimeErrorCode extends ErrorCode {
       const CompileTimeErrorCode('IMPLEMENTS_SUPER_CLASS',
           "'{0}' can't be used in both 'extends' and 'implements' clauses.",
           correction: "Try removing one of the occurances.");
+
+  static const CompileTimeErrorCode IMPLICIT_CALL_OF_NON_METHOD =
+      const CompileTimeErrorCode.fromFasta('IMPLICIT_CALL_OF_NON_METHOD');
 
   /**
    * 7.6.1 Generative Constructors: Note that <b>this</b> is not in scope on the
@@ -2026,6 +2034,12 @@ class CompileTimeErrorCode extends ErrorCode {
           "initializers.",
           correction: "Try changing the import to not be deferred.");
 
+  static const CompileTimeErrorCode NON_SYNC_ABSTRACT_METHOD =
+      const CompileTimeErrorCode.fromFasta('NON_SYNC_ABSTRACT_METHOD');
+
+  static const CompileTimeErrorCode NON_SYNC_FACTORY_METHOD =
+      const CompileTimeErrorCode.fromFasta('NON_SYNC_FACTORY_METHOD');
+
   /**
    * 12.14.2 Binding Actuals to Formals: It is a static warning if <i>m < h</i>
    * or if <i>m > n</i>.
@@ -2400,6 +2414,28 @@ class CompileTimeErrorCode extends ErrorCode {
           correction: "Try using a type that is or is a subclass of '{1}'.");
 
   /**
+   * It is a compile-time error if a generic function type is used as a bound
+   * for a formal type parameter of a class or a function.
+   */
+  static const CompileTimeErrorCode GENERIC_FUNCTION_TYPE_CANNOT_BE_BOUND =
+      const CompileTimeErrorCode('GENERIC_FUNCTION_TYPE_CANNOT_BE_BOUND',
+          'Generic function types may not be used as type parameter bounds',
+          correction: 'Try making the free variable in the function type part'
+              ' of the larger declaration signature');
+
+  /**
+   * It is a compile-time error if a generic function type is used as an actual
+   * type argument.
+   */
+  static const CompileTimeErrorCode GENERIC_FUNCTION_CANNOT_BE_TYPE_ARGUMENT =
+      const CompileTimeErrorCode(
+          'GENERIC_FUNCTION_CANNOT_BE_TYPE_ARGUMENT',
+          "Generic function has type parameters '<{0}>', so it may not be used"
+          ' as a type argument',
+          correction: "Try removing the type parameters '<{0}>', or using"
+              " 'dynamic' as the type argument here instead of a function.");
+
+  /**
    * 15.3.1 Typedef: Any self reference, either directly, or recursively via
    * another typedef, is a compile time error.
    */
@@ -2408,6 +2444,9 @@ class CompileTimeErrorCode extends ErrorCode {
           'TYPE_ALIAS_CANNOT_REFERENCE_ITSELF',
           "Typedefs can't reference themselves directly or recursively via "
           "another typedef.");
+
+  static const CompileTimeErrorCode TYPE_PARAMETER_ON_CONSTRUCTOR =
+      const CompileTimeErrorCode.fromFasta('TYPE_PARAMETER_ON_CONSTRUCTOR');
 
   /**
    * 15 Metadata: Metadata consists of a series of annotations, each of which
@@ -2609,6 +2648,14 @@ class CompileTimeErrorCode extends ErrorCode {
       : super.temporary(name, message,
             correction: correction,
             isUnresolvedIdentifier: isUnresolvedIdentifier);
+
+  /**
+   * Initialize a newly created error code to have the given [name]. No message
+   * or correction are necessary because the error code is only used when
+   * translating an error produced by fasta, and both will be taken from the
+   * error being translated.
+   */
+  const CompileTimeErrorCode.fromFasta(String name) : this(name, '');
 
   @override
   ErrorSeverity get errorSeverity => ErrorType.COMPILE_TIME_ERROR.severity;

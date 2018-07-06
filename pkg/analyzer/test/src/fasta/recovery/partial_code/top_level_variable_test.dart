@@ -13,17 +13,6 @@ main() {
 
 class TopLevelVariableTest extends PartialCodeTest {
   buildAll() {
-    List<String> allExceptEof = <String>[
-      'class',
-      'typedef',
-      'functionVoid',
-      'functionNonVoid',
-      'var',
-      'const',
-      'final',
-      'getter',
-      'setter'
-    ];
     buildTests(
         'top_level_variable',
         [
@@ -214,7 +203,15 @@ class TopLevelVariableTest extends PartialCodeTest {
               ParserErrorCode.EXPECTED_TOKEN
             ],
             "var a = _s_;",
-            failing: allExceptEof,
+            failing: [
+              'class',
+              'typedef',
+              'functionVoid',
+              'functionNonVoid',
+              'const',
+              'getter',
+              'setter'
+            ],
           ),
           new TestDescriptor(
             'varNameEqualsExpression',

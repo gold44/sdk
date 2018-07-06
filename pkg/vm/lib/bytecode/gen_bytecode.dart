@@ -30,10 +30,10 @@ const bool isKernelBytecodeEnabled = false;
 /// Flag to toggle generation of bytecode in platform kernel files.
 const bool isKernelBytecodeEnabledForPlatform = isKernelBytecodeEnabled;
 
-const bool isTraceEnabled = false;
-
 void generateBytecode(Component component,
-    {bool strongMode: true, bool dropAST: false}) {
+    {bool strongMode: true,
+    bool dropAST: false,
+    bool omitSourcePositions: false}) {
   final coreTypes = new CoreTypes(component);
   void ignoreAmbiguousSupertypes(Class cls, Supertype a, Supertype b) {}
   final hierarchy = new ClassHierarchy(component,
@@ -42,7 +42,7 @@ void generateBytecode(Component component,
       new TypeEnvironment(coreTypes, hierarchy, strongMode: strongMode);
   final constantsBackend = new VmConstantsBackend(null, coreTypes);
   new BytecodeGenerator(component, coreTypes, hierarchy, typeEnvironment,
-          constantsBackend, strongMode)
+          constantsBackend, strongMode, omitSourcePositions)
       .visitComponent(component);
   if (dropAST) {
     new DropAST().visitComponent(component);
@@ -56,6 +56,7 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   final TypeEnvironment typeEnvironment;
   final ConstantsBackend constantsBackend;
   final bool strongMode;
+  final bool omitSourcePositions;
   final BytecodeMetadataRepository metadata = new BytecodeMetadataRepository();
 
   Class enclosingClass;
@@ -77,8 +78,14 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   BytecodeAssembler asm;
   List<BytecodeAssembler> savedAssemblers;
 
-  BytecodeGenerator(this.component, this.coreTypes, this.hierarchy,
-      this.typeEnvironment, this.constantsBackend, this.strongMode) {
+  BytecodeGenerator(
+      this.component,
+      this.coreTypes,
+      this.hierarchy,
+      this.typeEnvironment,
+      this.constantsBackend,
+      this.strongMode,
+      this.omitSourcePositions) {
     component.addMetadataRepository(metadata);
   }
 
@@ -107,42 +114,36 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     if (node.isAbstract) {
       return;
     }
-    try {
-      if (node is Field) {
-        if (node.isStatic && node.initializer != null) {
-          start(node);
-          if (node.isConst) {
-            _genPushConstExpr(node.initializer);
-          } else {
-            node.initializer.accept(this);
-          }
-          _genReturnTOS();
-          end(node);
-        }
-      } else if ((node is Procedure && !node.isRedirectingFactoryConstructor) ||
-          (node is Constructor)) {
+    if (node is Field) {
+      if (node.isStatic && node.initializer != null) {
         start(node);
-        if (node is Constructor) {
-          _genConstructorInitializers(node);
-        }
-        if (node.isExternal) {
-          final String nativeName = getExternalName(node);
-          if (nativeName == null) {
-            return;
-          }
-          _genNativeCall(nativeName);
+        if (node.isConst) {
+          _genPushConstExpr(node.initializer);
         } else {
-          node.function?.body?.accept(this);
-          // TODO(alexmarkov): figure out when 'return null' should be generated.
-          _genPushNull();
+          node.initializer.accept(this);
         }
         _genReturnTOS();
         end(node);
       }
-    } on UnsupportedOperationError catch (e) {
-      if (isTraceEnabled) {
-        print('Unable to generate bytecode for $node: $e');
+    } else if ((node is Procedure && !node.isRedirectingFactoryConstructor) ||
+        (node is Constructor)) {
+      start(node);
+      if (node is Constructor) {
+        _genConstructorInitializers(node);
       }
+      if (node.isExternal) {
+        final String nativeName = getExternalName(node);
+        if (nativeName == null) {
+          return;
+        }
+        _genNativeCall(nativeName);
+      } else {
+        node.function?.body?.accept(this);
+        // TODO(alexmarkov): figure out when 'return null' should be generated.
+        _genPushNull();
+      }
+      _genReturnTOS();
+      end(node);
     }
   }
 
@@ -169,9 +170,7 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     asm.emitNativeCall(nativeEntryCpIndex);
   }
 
-  LibraryIndex _libraryIndex;
-  LibraryIndex get libraryIndex =>
-      _libraryIndex ??= new LibraryIndex.coreLibraries(component);
+  LibraryIndex get libraryIndex => coreTypes.index;
 
   Procedure _listFromLiteral;
   Procedure get listFromLiteral => _listFromLiteral ??=
@@ -211,6 +210,11 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
       _closureFunctionTypeArguments ??= libraryIndex.getMember(
           'dart:core', '_Closure', '_function_type_arguments');
 
+  Field _closureDelayedTypeArguments;
+  Field get closureDelayedTypeArguments =>
+      _closureDelayedTypeArguments ??= libraryIndex.getMember(
+          'dart:core', '_Closure', '_delayed_type_arguments');
+
   Field _closureFunction;
   Field get closureFunction => _closureFunction ??=
       libraryIndex.getMember('dart:core', '_Closure', '_function');
@@ -222,6 +226,14 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   Procedure _prependTypeArguments;
   Procedure get prependTypeArguments => _prependTypeArguments ??=
       libraryIndex.getTopLevelMember('dart:_internal', '_prependTypeArguments');
+
+  Procedure _futureValue;
+  Procedure get futureValue =>
+      _futureValue ??= libraryIndex.getMember('dart:async', 'Future', 'value');
+
+  Procedure _throwNewAssertionError;
+  Procedure get throwNewAssertionError => _throwNewAssertionError ??=
+      libraryIndex.getMember('dart:core', '_AssertionError', '_throwNew');
 
   void _genConstructorInitializers(Constructor node) {
     bool isRedirecting =
@@ -484,14 +496,14 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   }
 
   /// Generates bool condition. Returns `true` if condition is negated.
-  bool _genCondition(Node condition) {
+  bool _genCondition(Expression condition) {
     bool negated = false;
     if (condition is Not) {
       condition = (condition as Not).operand;
       negated = true;
     }
     condition.accept(this);
-    // TODO(alexmarkov): bool check
+    asm.emitAssertBoolean(0);
     return negated;
   }
 
@@ -593,6 +605,9 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
 
     _genPrologue(node, node.function);
     _setupInitialContext(node.function);
+    if (node is Procedure && node.isInstanceMember) {
+      _checkArguments(node.function);
+    }
     _genEqualsOperatorNullHandling(node);
   }
 
@@ -620,10 +635,6 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   void end(Member node) {
     metadata.mapping[node] =
         new BytecodeMetadata(cp, asm.bytecode, asm.exceptionsTable, closures);
-
-    if (isTraceEnabled) {
-      print('Generated bytecode for $node');
-    }
 
     enclosingClass = null;
     enclosingMember = null;
@@ -687,27 +698,31 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
       asm.emitPopLocal(locals.contextVarIndexInFrame);
     }
 
-    if (locals.hasFunctionTypeArgsVar && isClosure) {
+    if (locals.hasFunctionTypeArgsVar) {
       if (function.typeParameters.isNotEmpty) {
-        final int numParentTypeArgs = locals.numParentTypeArguments;
-        asm.emitPush(locals.functionTypeArgsVarIndexInFrame);
-        asm.emitPush(locals.closureVarIndexInFrame);
-        asm.emitLoadFieldTOS(
-            cp.add(new ConstantFieldOffset(closureFunctionTypeArguments)));
-        _genPushInt(numParentTypeArgs);
-        _genPushInt(numParentTypeArgs + function.typeParameters.length);
-        _genStaticCall(prependTypeArguments, new ConstantArgDesc(4), 4);
-        asm.emitPopLocal(locals.functionTypeArgsVarIndexInFrame);
-      } else {
-        asm.emitPush(locals.closureVarIndexInFrame);
-        asm.emitLoadFieldTOS(
-            cp.add(new ConstantFieldOffset(closureFunctionTypeArguments)));
-        asm.emitPopLocal(locals.functionTypeArgsVarIndexInFrame);
+        assert(!(node is Procedure && node.isFactory));
+        asm.emitCheckFunctionTypeArgs(function.typeParameters.length,
+            locals.functionTypeArgsVarIndexInFrame);
       }
-    }
 
-    if (isClosure || (node is Procedure && node.isInstanceMember)) {
-      _checkArguments(function);
+      if (isClosure) {
+        if (function.typeParameters.isNotEmpty) {
+          final int numParentTypeArgs = locals.numParentTypeArguments;
+          asm.emitPush(locals.functionTypeArgsVarIndexInFrame);
+          asm.emitPush(locals.closureVarIndexInFrame);
+          asm.emitLoadFieldTOS(
+              cp.add(new ConstantFieldOffset(closureFunctionTypeArguments)));
+          _genPushInt(numParentTypeArgs);
+          _genPushInt(numParentTypeArgs + function.typeParameters.length);
+          _genStaticCall(prependTypeArguments, new ConstantArgDesc(4), 4);
+          asm.emitPopLocal(locals.functionTypeArgsVarIndexInFrame);
+        } else {
+          asm.emitPush(locals.closureVarIndexInFrame);
+          asm.emitLoadFieldTOS(
+              cp.add(new ConstantFieldOffset(closureFunctionTypeArguments)));
+          asm.emitPopLocal(locals.functionTypeArgsVarIndexInFrame);
+        }
+      }
     }
   }
 
@@ -812,6 +827,7 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     }
 
     _setupInitialContext(function);
+    _checkArguments(function);
 
     // TODO(alexmarkov): support --causal_async_stacks.
 
@@ -930,9 +946,11 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     if (contextSize > 0) {
       asm.emitAllocateContext(contextSize);
 
-      _genDupTOS(locals.scratchVarIndexInFrame);
-      asm.emitPush(locals.contextVarIndexInFrame);
-      asm.emitStoreFieldTOS(cp.add(new ConstantContextOffset.parent()));
+      if (locals.currentContextLevel > 0) {
+        _genDupTOS(locals.scratchVarIndexInFrame);
+        asm.emitPush(locals.contextVarIndexInFrame);
+        asm.emitStoreFieldTOS(cp.add(new ConstantContextOffset.parent()));
+      }
 
       asm.emitPopLocal(locals.contextVarIndexInFrame);
     }
@@ -1014,6 +1032,16 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     // continuation if there are no try-finally blocks).
     continuation();
   }
+
+  // For certain expressions wrapped into ExpressionStatement we can
+  // omit pushing result on the stack.
+  bool isExpressionWithoutResult(Expression expr) =>
+      expr.parent is ExpressionStatement &&
+      (expr is VariableSet ||
+          expr is PropertySet ||
+          expr is StaticSet ||
+          expr is SuperPropertySet ||
+          expr is DirectPropertySet);
 
   @override
   defaultTreeNode(Node node) => throw new UnsupportedOperationError(
@@ -1109,9 +1137,18 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     asm.emitDrop1();
   }
 
-//  @override
-//  visitDirectMethodInvocation(DirectMethodInvocation node) {
-//  }
+  @override
+  visitDirectMethodInvocation(DirectMethodInvocation node) {
+    final args = node.arguments;
+    _genArguments(node.receiver, args);
+    final target = node.target;
+    if (target is Procedure && !target.isGetter && !target.isSetter) {
+      _genStaticCallWithArgs(target, args, hasReceiver: true);
+    } else {
+      throw new UnsupportedOperationError(
+          'Unsupported DirectMethodInvocation with target ${target.runtimeType} $target');
+    }
+  }
 
   @override
   visitDirectPropertyGet(DirectPropertyGet node) {
@@ -1125,22 +1162,71 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     }
   }
 
-//  @override
-//  visitDirectPropertySet(DirectPropertySet node) {
-//  }
+  @override
+  visitDirectPropertySet(DirectPropertySet node) {
+    final int temp = locals.tempIndexInFrame(node);
+    final bool hasResult = !isExpressionWithoutResult(node);
+
+    node.receiver.accept(this);
+    node.value.accept(this);
+
+    if (hasResult) {
+      asm.emitStoreLocal(temp);
+    }
+
+    final target = node.target;
+    if (target is Field || (target is Procedure && target.isSetter)) {
+      _genStaticCall(target, new ConstantArgDesc(2), 2, isSet: true);
+      asm.emitDrop1();
+    } else {
+      throw new UnsupportedOperationError(
+          'Unsupported DirectPropertySet with target ${target.runtimeType} $target');
+    }
+
+    if (hasResult) {
+      asm.emitPush(temp);
+    }
+  }
 
   @override
   visitFunctionExpression(FunctionExpression node) {
     _genClosure(node, '<anonymous closure>', node.function);
   }
 
-//  @override
-//  visitInstantiation(Instantiation node) {
-//  }
-//
-//  @override
-//  visitInvalidExpression(InvalidExpression node) {
-//  }
+  @override
+  visitInstantiation(Instantiation node) {
+    final int oldClosure = locals.tempIndexInFrame(node, tempIndex: 0);
+    final int newClosure = locals.tempIndexInFrame(node, tempIndex: 1);
+
+    node.expression.accept(this);
+    asm.emitPopLocal(oldClosure);
+
+    assert(closureClass.typeParameters.isEmpty);
+    asm.emitAllocate(cp.add(new ConstantClass(closureClass)));
+    asm.emitStoreLocal(newClosure);
+
+    _genTypeArguments(node.typeArguments);
+    asm.emitStoreFieldTOS(
+        cp.add(new ConstantFieldOffset(closureDelayedTypeArguments)));
+
+    // Copy the rest of the fields from old closure to a new closure.
+    final fieldsToCopy = <Field>[
+      closureInstantiatorTypeArguments,
+      closureFunctionTypeArguments,
+      closureFunction,
+      closureContext,
+    ];
+
+    for (Field field in fieldsToCopy) {
+      final fieldOffsetCpIndex = cp.add(new ConstantFieldOffset(field));
+      asm.emitPush(newClosure);
+      asm.emitPush(oldClosure);
+      asm.emitLoadFieldTOS(fieldOffsetCpIndex);
+      asm.emitStoreFieldTOS(fieldOffsetCpIndex);
+    }
+
+    asm.emitPush(newClosure);
+  }
 
   @override
   visitIsExpression(IsExpression node) {
@@ -1290,15 +1376,24 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   @override
   visitPropertySet(PropertySet node) {
     final int temp = locals.tempIndexInFrame(node);
+    final bool hasResult = !isExpressionWithoutResult(node);
+
     node.receiver.accept(this);
     node.value.accept(this);
-    asm.emitStoreLocal(temp);
+
+    if (hasResult) {
+      asm.emitStoreLocal(temp);
+    }
+
     final argDescIndex = cp.add(new ConstantArgDesc(2));
     final icdataIndex = cp.add(
         new ConstantICData(InvocationKind.setter, node.name, argDescIndex));
     asm.emitInstanceCall1(2, icdataIndex);
     asm.emitDrop1();
-    asm.emitPush(temp);
+
+    if (hasResult) {
+      asm.emitPush(temp);
+    }
   }
 
   @override
@@ -1322,7 +1417,7 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   @override
   visitSuperPropertyGet(SuperPropertyGet node) {
     _genPushReceiver();
-    Member target =
+    final Member target =
         hierarchy.getDispatchTarget(enclosingClass.superclass, node.name);
     if (target == null) {
       throw new UnsupportedOperationError(
@@ -1336,9 +1431,36 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     }
   }
 
-//  @override
-//  visitSuperPropertySet(SuperPropertySet node) {
-//  }
+  @override
+  visitSuperPropertySet(SuperPropertySet node) {
+    final int temp = locals.tempIndexInFrame(node);
+    final bool hasResult = !isExpressionWithoutResult(node);
+
+    _genPushReceiver();
+    node.value.accept(this);
+
+    if (hasResult) {
+      asm.emitStoreLocal(temp);
+    }
+
+    final Member target = hierarchy
+        .getDispatchTarget(enclosingClass.superclass, node.name, setter: true);
+    if (target == null) {
+      throw new UnsupportedOperationError(
+          'Unsupported SuperPropertySet without target');
+    }
+    if (target is Field || (target is Procedure && target.isSetter)) {
+      _genStaticCall(target, new ConstantArgDesc(2), 2, isSet: true);
+      asm.emitDrop1();
+    } else {
+      throw new UnsupportedOperationError(
+          'Unsupported SuperPropertySet with target ${target.runtimeType} $target');
+    }
+
+    if (hasResult) {
+      asm.emitPush(temp);
+    }
+  }
 
   @override
   visitNot(Not node) {
@@ -1426,8 +1548,14 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
 
   @override
   visitStaticSet(StaticSet node) {
+    final bool hasResult = !isExpressionWithoutResult(node);
+
     node.value.accept(this);
-    _genDupTOS(locals.tempIndexInFrame(node));
+
+    if (hasResult) {
+      _genDupTOS(locals.tempIndexInFrame(node));
+    }
+
     final target = node.target;
     if (target is Field) {
       int cpIndex = cp.add(new ConstantField(target));
@@ -1510,55 +1638,70 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
   @override
   visitVariableSet(VariableSet node) {
     final v = node.variable;
+    final bool hasResult = !isExpressionWithoutResult(node);
+
     if (locals.isCaptured(v)) {
       _genPushContextForVariable(v);
 
       node.value.accept(this);
 
-      // Preserve value.
       final int temp = locals.tempIndexInFrame(node);
-      asm.emitStoreLocal(temp);
+      if (hasResult) {
+        asm.emitStoreLocal(temp);
+      }
 
       _genStoreVar(v);
 
-      asm.emitPush(temp);
+      if (hasResult) {
+        asm.emitPush(temp);
+      }
     } else {
       node.value.accept(this);
-      asm.emitStoreLocal(locals.getVarIndexInFrame(v));
+
+      final int localIndex = locals.getVarIndexInFrame(v);
+      if (hasResult) {
+        asm.emitStoreLocal(localIndex);
+      } else {
+        asm.emitPopLocal(localIndex);
+      }
     }
   }
 
-//  @override
-//  visitLoadLibrary(LoadLibrary node) {
-//  }
-//
-//  @override
-//  visitCheckLibraryIsLoaded(CheckLibraryIsLoaded node) {
-//  }
-//
-//  @override
-//  visitVectorCreation(VectorCreation node) {
-//  }
-//
-//  @override
-//  visitVectorGet(VectorGet node) {
-//  }
-//
-//  @override
-//  visitVectorSet(VectorSet node) {
-//  }
-//
-//  @override
-//  visitVectorCopy(VectorCopy node) {
-//  }
-//
-//  @override
-//  visitClosureCreation(ClosureCreation node) {
-//  }
+  void _genFutureNull() {
+    _genPushNull();
+    _genStaticCall(futureValue, new ConstantArgDesc(1), 1);
+  }
+
+  @override
+  visitLoadLibrary(LoadLibrary node) {
+    _genFutureNull();
+  }
+
+  @override
+  visitCheckLibraryIsLoaded(CheckLibraryIsLoaded node) {
+    _genFutureNull();
+  }
 
   @override
   visitAssertStatement(AssertStatement node) {
-    // TODO(alexmarkov): support asserts
+    final Label done = new Label();
+    asm.emitJumpIfNoAsserts(done);
+
+    final bool negated = _genCondition(node.condition);
+    _genJumpIfTrue(negated, done);
+
+    _genPushInt(omitSourcePositions ? 0 : node.conditionStartOffset);
+    _genPushInt(omitSourcePositions ? 0 : node.conditionEndOffset);
+
+    if (node.message != null) {
+      node.message.accept(this);
+    } else {
+      _genPushNull();
+    }
+
+    _genStaticCall(throwNewAssertionError, new ConstantArgDesc(3), 3);
+
+    asm.bind(done);
   }
 
   @override
@@ -1570,7 +1713,14 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
 
   @override
   visitAssertBlock(AssertBlock node) {
-    // TODO(alexmarkov): support asserts
+    final Label done = new Label();
+    asm.emitJumpIfNoAsserts(done);
+
+    _enterScope(node);
+    visitList(node.statements, this);
+    _leaveScope();
+
+    asm.bind(done);
   }
 
   @override
@@ -1618,8 +1768,11 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
 
   @override
   visitExpressionStatement(ExpressionStatement node) {
-    node.expression.accept(this);
-    asm.emitDrop1();
+    final expr = node.expression;
+    expr.accept(this);
+    if (!isExpressionWithoutResult(expr)) {
+      asm.emitDrop1();
+    }
   }
 
   @override
@@ -1799,7 +1952,9 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
         for (var expr in switchCase.expressions) {
           asm.emitPush(temp);
           _genPushConstExpr(expr);
-          asm.emitInstanceCall2(
+          // TODO(alexmarkov): generate InstanceCall2 once we have a way to
+          // mark ICData as having 2 checked arguments.
+          asm.emitInstanceCall1(
               2,
               cp.add(new ConstantICData(
                   InvocationKind.method, new Name('=='), equalsArgDesc)));
@@ -2163,16 +2318,15 @@ class BytecodeGenerator extends RecursiveVisitor<Null> {
     asm.emitDrop1();
   }
 
-//  @override
-//  visitLocalInitializer(LocalInitializer node) {
-//  }
-//
-//  @override
-//  visitAssertInitializer(AssertInitializer node) {
-//  }
-//
-//  @override
-//  visitInvalidInitializer(InvalidInitializer node) {}
+  @override
+  visitLocalInitializer(LocalInitializer node) {
+    node.variable.accept(this);
+  }
+
+  @override
+  visitAssertInitializer(AssertInitializer node) {
+    node.statement.accept(this);
+  }
 
   @override
   visitConstantExpression(ConstantExpression node) {
@@ -2226,8 +2380,9 @@ class ConstantEmitter extends ConstantVisitor<int> {
   int visitTearOffConstant(TearOffConstant node) =>
       cp.add(new ConstantTearOff(node.procedure));
 
-//  @override
-//  int visitTypeLiteralConstant(TypeLiteralConstant node) => defaultConstant(node);
+  @override
+  int visitTypeLiteralConstant(TypeLiteralConstant node) =>
+      cp.add(new ConstantType(node.type));
 }
 
 class UnsupportedOperationError {

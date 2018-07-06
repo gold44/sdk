@@ -12,37 +12,34 @@ Bytecode {
   PopLocal             r1
   Push                 r1
   PushConstant         CP#2
-  InstanceCall2        2, CP#3
+  InstanceCall1        2, CP#3
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#5
-  InstanceCall2        2, CP#6
+  InstanceCall1        2, CP#6
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Push                 r1
   PushConstant         CP#7
-  InstanceCall2        2, CP#8
+  InstanceCall1        2, CP#8
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L3
   Jump                 L4
 L1:
   PushConstant         CP#9
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Jump                 L4
 L2:
   PushConstant         CP#10
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Jump                 L4
 L3:
   PushConstant         CP#11
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Jump                 L4
 L4:
   Push                 r0
@@ -99,55 +96,52 @@ Bytecode {
   PopLocal             r1
   Push                 r1
   PushConstant         CP#2
-  InstanceCall2        2, CP#3
+  InstanceCall1        2, CP#3
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#5
-  InstanceCall2        2, CP#6
+  InstanceCall1        2, CP#6
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#7
-  InstanceCall2        2, CP#8
+  InstanceCall1        2, CP#8
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#9
-  InstanceCall2        2, CP#10
+  InstanceCall1        2, CP#10
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Push                 r1
   PushConstant         CP#11
-  InstanceCall2        2, CP#12
+  InstanceCall1        2, CP#12
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Push                 r1
   PushConstant         CP#13
-  InstanceCall2        2, CP#14
+  InstanceCall1        2, CP#14
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Jump                 L3
 L1:
   PushConstant         CP#15
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Jump                 L4
 L2:
   PushConstant         CP#16
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Jump                 L4
 L3:
   PushConstant         CP#17
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
 L4:
   Push                 r0
   ReturnTOS
@@ -212,56 +206,53 @@ Bytecode {
   PopLocal             r1
   Push                 r1
   PushConstant         CP#2
-  InstanceCall2        2, CP#3
+  InstanceCall1        2, CP#3
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#5
-  InstanceCall2        2, CP#6
+  InstanceCall1        2, CP#6
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#7
-  InstanceCall2        2, CP#8
+  InstanceCall1        2, CP#8
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L1
   Push                 r1
   PushConstant         CP#9
-  InstanceCall2        2, CP#10
+  InstanceCall1        2, CP#10
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Push                 r1
   PushConstant         CP#11
-  InstanceCall2        2, CP#12
+  InstanceCall1        2, CP#12
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Push                 r1
   PushConstant         CP#13
-  InstanceCall2        2, CP#14
+  InstanceCall1        2, CP#14
   PushConstant         CP#4
   IfEqStrictTOS
   Jump                 L2
   Jump                 L3
 L1:
   PushConstant         CP#15
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Jump                 L2
 L2:
   PushConstant         CP#16
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   PushConstant         CP#17
   ReturnTOS
 L3:
   PushConstant         CP#18
-  StoreLocal           r0
-  Drop1
+  PopLocal             r0
   Push                 r0
   ReturnTOS
   PushConstant         CP#0
